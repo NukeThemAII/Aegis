@@ -1,0 +1,374 @@
+[2026-03-27T19:30:01.265Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/3/5/weak-lower-wick/volume-too-light | USDT-BTC=regime-blocked/0/5/regime-fail | new_states=89 | new_events=0 | alerts=3
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 85 monitor observations without entry. Primary blockers so far: weak-lower-wick x81, weak-close-location x4
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+ALERT: USDT-PAXG is also repeatedly failing reclaim quality. Do not relax reclaim rules until liquidity tolerance is tested first.
+[2026-03-27T19:35:01.079Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=159 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 110 monitor observations without entry. Primary blockers so far: weak-lower-wick x101, weak-close-location x62
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T19:40:01.549Z] Aegis monitor | pairs=6 | USDT-PAXG=value-pullback-watch/1/5/above-value-band/volume-too-light | USDT-BTC=regime-blocked/0/5/regime-fail | new_states=166 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 111 monitor observations without entry. Primary blockers so far: weak-lower-wick x101, above-value-band x72, weak-close-location x64
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T19:45:01.661Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/0/5/regime-fail | new_states=156 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 111 monitor observations without entry. Primary blockers so far: above-value-band x104, weak-lower-wick x101, weak-close-location x99
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T19:50:01.744Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/bearish-signal-close/volume-too-light | USDT-BTC=regime-blocked/0/5/regime-fail | new_states=157 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 111 monitor observations without entry. Primary blockers so far: weak-close-location x142, above-value-band x113, weak-lower-wick x101
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T19:55:01.850Z] Aegis monitor | pairs=6 | USDT-PAXG=liquidity-screen/4/5/volume-too-light/volume-too-light | USDT-BTC=regime-blocked/0/5/regime-fail | new_states=154 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 137 monitor observations without entry. Primary blockers so far: weak-close-location x142, above-value-band x113, weak-lower-wick x101
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T20:00:02.000Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-lower-wick/volume-too-light | USDT-BTC=regime-blocked/0/5/regime-fail | new_states=159 | new_events=0 | alerts=3
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 166 monitor observations without entry. Primary blockers so far: weak-lower-wick x149, weak-close-location x148, above-value-band x114
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+ALERT: USDT-PAXG is also repeatedly failing reclaim quality. Do not relax reclaim rules until liquidity tolerance is tested first.
+[2026-03-27T20:05:01.081Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/2/5/regime-fail | new_states=172 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 170 monitor observations without entry. Primary blockers so far: weak-close-location x206, weak-lower-wick x156, above-value-band x114
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T20:10:01.541Z] Aegis monitor | pairs=6 | USDT-PAXG=value-pullback-watch/1/5/above-value-band/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=159 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 170 monitor observations without entry. Primary blockers so far: weak-close-location x209, above-value-band x184, weak-lower-wick x156
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T20:15:01.626Z] Aegis monitor | pairs=6 | USDT-PAXG=value-pullback-watch/1/5/above-value-band/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=161 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 170 monitor observations without entry. Primary blockers so far: above-value-band x265, weak-close-location x209, weak-lower-wick x156
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T20:20:01.716Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=162 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 170 monitor observations without entry. Primary blockers so far: above-value-band x328, weak-close-location x221, weak-lower-wick x156
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T20:25:01.817Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=159 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 170 monitor observations without entry. Primary blockers so far: above-value-band x328, weak-close-location x292, weak-lower-wick x156
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T20:30:01.909Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/0/5/regime-fail | new_states=166 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 170 monitor observations without entry. Primary blockers so far: weak-close-location x371, above-value-band x331, weak-lower-wick x156
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T20:35:01.745Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/0/5/regime-fail | new_states=159 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 170 monitor observations without entry. Primary blockers so far: weak-close-location x449, above-value-band x331, weak-lower-wick x159
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T20:40:01.237Z] Aegis monitor | pairs=6 | USDT-PAXG=liquidity-screen/4/5/volume-too-light/volume-too-light | USDT-BTC=regime-blocked/0/5/regime-fail | new_states=164 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 203 monitor observations without entry. Primary blockers so far: weak-close-location x496, above-value-band x331, weak-lower-wick x159
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T20:45:01.318Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/0/5/regime-fail | new_states=150 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 272 monitor observations without entry. Primary blockers so far: weak-close-location x507, above-value-band x331, weak-lower-wick x159
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T20:50:01.405Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=170 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 277 monitor observations without entry. Primary blockers so far: weak-close-location x574, above-value-band x331, weak-lower-wick x159
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T20:55:01.503Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=151 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 277 monitor observations without entry. Primary blockers so far: weak-close-location x598, above-value-band x331, weak-lower-wick x159
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T21:00:01.620Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/3/5/weak-close-location/ok | USDT-BTC=regime-blocked/0/5/regime-fail | new_states=156 | new_events=2 | alerts=1
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 321 monitor observations without entry. Primary blockers so far: weak-close-location x666, above-value-band x331, weak-lower-wick x159
+[2026-03-27T21:05:01.460Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/3/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=12 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 327 monitor observations without entry. Primary blockers so far: weak-close-location x672, above-value-band x331, weak-lower-wick x159
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T21:10:01.923Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/3/5/weak-lower-wick/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=156 | new_events=0 | alerts=3
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 381 monitor observations without entry. Primary blockers so far: weak-close-location x724, above-value-band x331, weak-lower-wick x188
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+ALERT: USDT-PAXG is also repeatedly failing reclaim quality. Do not relax reclaim rules until liquidity tolerance is tested first.
+[2026-03-27T21:15:02.010Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=155 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 408 monitor observations without entry. Primary blockers so far: weak-close-location x781, above-value-band x331, weak-lower-wick x212
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T21:20:01.096Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=167 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 411 monitor observations without entry. Primary blockers so far: weak-close-location x837, above-value-band x331, weak-lower-wick x212
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T21:25:01.187Z] Aegis monitor | pairs=6 | USDT-PAXG=liquidity-screen/4/5/volume-too-light/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=158 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 453 monitor observations without entry. Primary blockers so far: weak-close-location x846, above-value-band x331, weak-lower-wick x212
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T21:30:01.268Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=160 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 492 monitor observations without entry. Primary blockers so far: weak-close-location x853, above-value-band x331, weak-lower-wick x277
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T21:35:01.050Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/3/5/weak-lower-wick/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=175 | new_events=0 | alerts=3
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 522 monitor observations without entry. Primary blockers so far: weak-close-location x895, above-value-band x331, weak-lower-wick x316
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+ALERT: USDT-PAXG is also repeatedly failing reclaim quality. Do not relax reclaim rules until liquidity tolerance is tested first.
+[2026-03-27T21:40:01.497Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/3/5/weak-lower-wick/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=166 | new_events=0 | alerts=3
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 592 monitor observations without entry. Primary blockers so far: weak-close-location x895, weak-lower-wick x395, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+ALERT: USDT-PAXG is also repeatedly failing reclaim quality. Do not relax reclaim rules until liquidity tolerance is tested first.
+[2026-03-27T21:45:01.587Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/3/5/weak-lower-wick/volume-too-light | USDT-BTC=regime-blocked/0/5/regime-fail | new_states=167 | new_events=0 | alerts=3
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 675 monitor observations without entry. Primary blockers so far: weak-close-location x895, weak-lower-wick x478, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+ALERT: USDT-PAXG is also repeatedly failing reclaim quality. Do not relax reclaim rules until liquidity tolerance is tested first.
+[2026-03-27T21:50:01.684Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-lower-wick/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=173 | new_events=1 | alerts=3
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 694 monitor observations without entry. Primary blockers so far: weak-close-location x902, weak-lower-wick x552, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+ALERT: USDT-PAXG is also repeatedly failing reclaim quality. Do not relax reclaim rules until liquidity tolerance is tested first.
+[2026-03-27T21:55:01.776Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=158 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 694 monitor observations without entry. Primary blockers so far: weak-close-location x971, weak-lower-wick x568, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T22:00:01.875Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=159 | new_events=1 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 701 monitor observations without entry. Primary blockers so far: weak-close-location x1042, weak-lower-wick x575, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T22:05:01.824Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=77 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 701 monitor observations without entry. Primary blockers so far: weak-close-location x1079, weak-lower-wick x575, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T22:10:01.285Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=166 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 701 monitor observations without entry. Primary blockers so far: weak-close-location x1154, weak-lower-wick x583, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T22:15:01.385Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=167 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 701 monitor observations without entry. Primary blockers so far: weak-close-location x1241, weak-lower-wick x583, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T22:20:01.489Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=166 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 701 monitor observations without entry. Primary blockers so far: weak-close-location x1310, weak-lower-wick x599, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T22:25:01.576Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=157 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 701 monitor observations without entry. Primary blockers so far: weak-close-location x1381, weak-lower-wick x606, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T22:30:01.670Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=161 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 701 monitor observations without entry. Primary blockers so far: weak-close-location x1463, weak-lower-wick x606, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T22:35:01.419Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/bearish-signal-close/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=166 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 701 monitor observations without entry. Primary blockers so far: weak-close-location x1509, weak-lower-wick x624, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T22:40:01.869Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=156 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 707 monitor observations without entry. Primary blockers so far: weak-close-location x1560, weak-lower-wick x644, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T22:45:01.960Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=154 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 707 monitor observations without entry. Primary blockers so far: weak-close-location x1640, weak-lower-wick x644, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T22:50:01.053Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=165 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 717 monitor observations without entry. Primary blockers so far: weak-close-location x1683, weak-lower-wick x681, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T22:55:01.142Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=159 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 717 monitor observations without entry. Primary blockers so far: weak-close-location x1768, weak-lower-wick x681, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T23:00:01.313Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-lower-wick/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=159 | new_events=0 | alerts=3
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 717 monitor observations without entry. Primary blockers so far: weak-close-location x1794, weak-lower-wick x740, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+ALERT: USDT-PAXG is also repeatedly failing reclaim quality. Do not relax reclaim rules until liquidity tolerance is tested first.
+[2026-03-27T23:05:01.722Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=61 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 717 monitor observations without entry. Primary blockers so far: weak-close-location x1826, weak-lower-wick x740, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T23:10:01.402Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=157 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 717 monitor observations without entry. Primary blockers so far: weak-close-location x1903, weak-lower-wick x740, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T23:15:01.487Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=150 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 717 monitor observations without entry. Primary blockers so far: weak-close-location x1984, weak-lower-wick x740, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T23:20:01.586Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-lower-wick/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=156 | new_events=0 | alerts=3
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 717 monitor observations without entry. Primary blockers so far: weak-close-location x1987, weak-lower-wick x815, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+ALERT: USDT-PAXG is also repeatedly failing reclaim quality. Do not relax reclaim rules until liquidity tolerance is tested first.
+[2026-03-27T23:25:01.676Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-lower-wick/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=152 | new_events=0 | alerts=3
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 717 monitor observations without entry. Primary blockers so far: weak-close-location x1987, weak-lower-wick x897, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+ALERT: USDT-PAXG is also repeatedly failing reclaim quality. Do not relax reclaim rules until liquidity tolerance is tested first.
+[2026-03-27T23:30:01.758Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-lower-wick/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=156 | new_events=0 | alerts=3
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 717 monitor observations without entry. Primary blockers so far: weak-close-location x1987, weak-lower-wick x975, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+ALERT: USDT-PAXG is also repeatedly failing reclaim quality. Do not relax reclaim rules until liquidity tolerance is tested first.
+[2026-03-27T23:35:01.696Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-lower-wick/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=167 | new_events=0 | alerts=3
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 717 monitor observations without entry. Primary blockers so far: weak-close-location x2003, weak-lower-wick x1015, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+ALERT: USDT-PAXG is also repeatedly failing reclaim quality. Do not relax reclaim rules until liquidity tolerance is tested first.
+[2026-03-27T23:40:01.150Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/2/5/regime-fail | new_states=159 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 717 monitor observations without entry. Primary blockers so far: weak-close-location x2058, weak-lower-wick x1040, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T23:45:01.247Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-lower-wick/volume-too-light | USDT-BTC=regime-blocked/0/5/regime-fail | new_states=160 | new_events=0 | alerts=3
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 717 monitor observations without entry. Primary blockers so far: weak-close-location x2115, weak-lower-wick x1063, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+ALERT: USDT-PAXG is also repeatedly failing reclaim quality. Do not relax reclaim rules until liquidity tolerance is tested first.
+[2026-03-27T23:50:01.326Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=163 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 734 monitor observations without entry. Primary blockers so far: weak-close-location x2139, weak-lower-wick x1104, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-27T23:55:01.416Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/3/5/weak-lower-wick/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=167 | new_events=0 | alerts=3
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 784 monitor observations without entry. Primary blockers so far: weak-close-location x2152, weak-lower-wick x1160, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+ALERT: USDT-PAXG is also repeatedly failing reclaim quality. Do not relax reclaim rules until liquidity tolerance is tested first.
+[2026-03-28T00:00:01.529Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=171 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 799 monitor observations without entry. Primary blockers so far: weak-close-location x2205, weak-lower-wick x1180, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T00:05:01.617Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/2/5/regime-fail | new_states=76 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 799 monitor observations without entry. Primary blockers so far: weak-close-location x2244, weak-lower-wick x1180, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T00:10:01.054Z] Aegis monitor | pairs=6 | USDT-PAXG=momentum-reset/3/5/rsi-delta-weak/volume-too-light | USDT-BTC=regime-blocked/2/5/regime-fail | new_states=173 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 829 monitor observations without entry. Primary blockers so far: weak-close-location x2291, weak-lower-wick x1180, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T00:15:01.134Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=166 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 847 monitor observations without entry. Primary blockers so far: weak-close-location x2354, weak-lower-wick x1180, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T00:20:01.227Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=171 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 847 monitor observations without entry. Primary blockers so far: weak-close-location x2436, weak-lower-wick x1180, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T00:25:01.318Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=166 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 847 monitor observations without entry. Primary blockers so far: weak-close-location x2519, weak-lower-wick x1180, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T00:30:01.403Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/4/5/weak-close-location/ok | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=166 | new_events=1 | alerts=1
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 864 monitor observations without entry. Primary blockers so far: weak-close-location x2593, weak-lower-wick x1180, above-value-band x331
+[2026-03-28T00:35:01.295Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=165 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 865 monitor observations without entry. Primary blockers so far: weak-close-location x2656, weak-lower-wick x1196, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T00:40:01.754Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=158 | new_events=1 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 870 monitor observations without entry. Primary blockers so far: weak-close-location x2729, weak-lower-wick x1202, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T00:45:01.842Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-lower-wick/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=152 | new_events=0 | alerts=3
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 870 monitor observations without entry. Primary blockers so far: weak-close-location x2805, weak-lower-wick x1205, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+ALERT: USDT-PAXG is also repeatedly failing reclaim quality. Do not relax reclaim rules until liquidity tolerance is tested first.
+[2026-03-28T00:50:01.923Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=159 | new_events=1 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 873 monitor observations without entry. Primary blockers so far: weak-close-location x2858, weak-lower-wick x1230, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T00:55:02.014Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=148 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 873 monitor observations without entry. Primary blockers so far: weak-close-location x2939, weak-lower-wick x1230, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T01:00:01.123Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=159 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 873 monitor observations without entry. Primary blockers so far: weak-close-location x3021, weak-lower-wick x1230, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T01:05:01.034Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=60 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 873 monitor observations without entry. Primary blockers so far: weak-close-location x3054, weak-lower-wick x1230, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T01:10:01.461Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/bearish-signal-close/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=158 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 873 monitor observations without entry. Primary blockers so far: weak-close-location x3116, weak-lower-wick x1230, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T01:15:01.548Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=161 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 873 monitor observations without entry. Primary blockers so far: weak-close-location x3177, weak-lower-wick x1230, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T01:20:01.650Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-lower-wick/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=151 | new_events=0 | alerts=3
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 883 monitor observations without entry. Primary blockers so far: weak-close-location x3223, weak-lower-wick x1253, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+ALERT: USDT-PAXG is also repeatedly failing reclaim quality. Do not relax reclaim rules until liquidity tolerance is tested first.
+[2026-03-28T01:25:01.745Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=153 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 919 monitor observations without entry. Primary blockers so far: weak-close-location x3243, weak-lower-wick x1307, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T01:30:01.834Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=143 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 919 monitor observations without entry. Primary blockers so far: weak-close-location x3252, weak-lower-wick x1307, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T01:35:01.772Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=149 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 927 monitor observations without entry. Primary blockers so far: weak-close-location x3252, weak-lower-wick x1307, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T01:40:01.257Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=161 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 927 monitor observations without entry. Primary blockers so far: weak-close-location x3252, weak-lower-wick x1307, above-value-band x331
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T01:45:01.347Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=149 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 927 monitor observations without entry. Primary blockers so far: weak-close-location x3252, weak-lower-wick x1307, below-reclaim-trigger x354
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T01:50:01.430Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=157 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 927 monitor observations without entry. Primary blockers so far: weak-close-location x3252, weak-lower-wick x1307, below-reclaim-trigger x434
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T01:55:01.523Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=145 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 927 monitor observations without entry. Primary blockers so far: weak-close-location x3252, weak-lower-wick x1307, below-reclaim-trigger x508
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T02:00:01.639Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/3/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=155 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 963 monitor observations without entry. Primary blockers so far: weak-close-location x3252, weak-lower-wick x1307, below-reclaim-trigger x587
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T02:05:01.488Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=70 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 963 monitor observations without entry. Primary blockers so far: weak-close-location x3252, weak-lower-wick x1307, below-reclaim-trigger x622
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T02:10:01.976Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/3/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=153 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1030 monitor observations without entry. Primary blockers so far: weak-close-location x3252, weak-lower-wick x1307, below-reclaim-trigger x699
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T02:15:01.055Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/3/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=140 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1105 monitor observations without entry. Primary blockers so far: weak-close-location x3252, weak-lower-wick x1307, below-reclaim-trigger x774
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T02:20:01.149Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=159 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1108 monitor observations without entry. Primary blockers so far: weak-close-location x3252, weak-lower-wick x1307, below-reclaim-trigger x847
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T02:25:01.237Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=140 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1108 monitor observations without entry. Primary blockers so far: weak-close-location x3252, weak-lower-wick x1307, below-reclaim-trigger x918
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T02:30:01.321Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=146 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1108 monitor observations without entry. Primary blockers so far: weak-close-location x3252, weak-lower-wick x1307, below-reclaim-trigger x993
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T02:35:01.071Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=148 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1108 monitor observations without entry. Primary blockers so far: weak-close-location x3252, weak-lower-wick x1307, below-reclaim-trigger x1076
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T02:40:01.537Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=145 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1108 monitor observations without entry. Primary blockers so far: weak-close-location x3252, weak-lower-wick x1307, below-reclaim-trigger x1155
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T02:45:01.617Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=145 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1108 monitor observations without entry. Primary blockers so far: weak-close-location x3252, weak-lower-wick x1307, below-reclaim-trigger x1234
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T02:50:01.699Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=144 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1108 monitor observations without entry. Primary blockers so far: weak-close-location x3252, weak-lower-wick x1307, below-reclaim-trigger x1303
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T02:55:01.790Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=148 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1108 monitor observations without entry. Primary blockers so far: weak-close-location x3252, below-reclaim-trigger x1382, weak-lower-wick x1307
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T03:00:01.901Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=137 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1108 monitor observations without entry. Primary blockers so far: weak-close-location x3252, below-reclaim-trigger x1456, weak-lower-wick x1307
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T03:05:01.873Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=56 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1108 monitor observations without entry. Primary blockers so far: weak-close-location x3252, below-reclaim-trigger x1489, weak-lower-wick x1307
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T03:10:01.341Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/3/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=135 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1126 monitor observations without entry. Primary blockers so far: weak-close-location x3252, below-reclaim-trigger x1563, weak-lower-wick x1307
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T03:15:01.429Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/3/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=143 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1173 monitor observations without entry. Primary blockers so far: weak-close-location x3252, below-reclaim-trigger x1639, weak-lower-wick x1307
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T03:20:01.521Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=144 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1177 monitor observations without entry. Primary blockers so far: weak-close-location x3252, below-reclaim-trigger x1715, weak-lower-wick x1307
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T03:25:01.630Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=141 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1177 monitor observations without entry. Primary blockers so far: weak-close-location x3252, below-reclaim-trigger x1790, weak-lower-wick x1307
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T03:30:01.737Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=140 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1179 monitor observations without entry. Primary blockers so far: weak-close-location x3252, below-reclaim-trigger x1860, weak-lower-wick x1307
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T03:35:01.560Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=155 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1179 monitor observations without entry. Primary blockers so far: weak-close-location x3252, below-reclaim-trigger x1936, weak-lower-wick x1307
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T03:40:01.028Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/3/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=139 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1199 monitor observations without entry. Primary blockers so far: weak-close-location x3252, below-reclaim-trigger x2008, weak-lower-wick x1307
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T03:45:01.112Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/3/5/weak-lower-wick/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=151 | new_events=0 | alerts=3
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1276 monitor observations without entry. Primary blockers so far: weak-close-location x3252, below-reclaim-trigger x2052, weak-lower-wick x1340
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+ALERT: USDT-PAXG is also repeatedly failing reclaim quality. Do not relax reclaim rules until liquidity tolerance is tested first.
+[2026-03-28T03:50:01.208Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/2/5/regime-fail | new_states=156 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1278 monitor observations without entry. Primary blockers so far: weak-close-location x3268, below-reclaim-trigger x2053, weak-lower-wick x1388
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T03:55:01.303Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=126 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1278 monitor observations without entry. Primary blockers so far: weak-close-location x3269, below-reclaim-trigger x2113, weak-lower-wick x1388
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T04:00:01.432Z] Aegis monitor | pairs=6 | USDT-PAXG=momentum-reset/3/5/rsi-delta-weak/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=137 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1297 monitor observations without entry. Primary blockers so far: weak-close-location x3269, below-reclaim-trigger x2164, weak-lower-wick x1388
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T04:05:01.247Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=55 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1297 monitor observations without entry. Primary blockers so far: weak-close-location x3269, below-reclaim-trigger x2194, weak-lower-wick x1388
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T04:10:01.684Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=134 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1297 monitor observations without entry. Primary blockers so far: weak-close-location x3269, below-reclaim-trigger x2256, weak-lower-wick x1388
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T04:15:01.782Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=138 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1297 monitor observations without entry. Primary blockers so far: weak-close-location x3269, below-reclaim-trigger x2322, weak-lower-wick x1388
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T04:20:01.876Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=147 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1305 monitor observations without entry. Primary blockers so far: weak-close-location x3269, below-reclaim-trigger x2397, weak-lower-wick x1388
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T04:25:01.977Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=146 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1305 monitor observations without entry. Primary blockers so far: weak-close-location x3269, below-reclaim-trigger x2471, weak-lower-wick x1388
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T04:30:01.065Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/3/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=145 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1337 monitor observations without entry. Primary blockers so far: weak-close-location x3269, below-reclaim-trigger x2545, weak-lower-wick x1388
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T04:35:01.826Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=139 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1339 monitor observations without entry. Primary blockers so far: weak-close-location x3269, below-reclaim-trigger x2621, weak-lower-wick x1388
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T04:40:01.313Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=146 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1339 monitor observations without entry. Primary blockers so far: weak-close-location x3269, below-reclaim-trigger x2695, weak-lower-wick x1388
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T04:45:01.399Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=145 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1339 monitor observations without entry. Primary blockers so far: weak-close-location x3269, below-reclaim-trigger x2773, weak-lower-wick x1388
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T04:50:01.479Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=158 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1339 monitor observations without entry. Primary blockers so far: weak-close-location x3269, below-reclaim-trigger x2858, weak-lower-wick x1388
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T04:55:01.589Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=152 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1339 monitor observations without entry. Primary blockers so far: weak-close-location x3269, below-reclaim-trigger x2937, weak-lower-wick x1388
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T05:00:01.718Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/3/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=141 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1361 monitor observations without entry. Primary blockers so far: weak-close-location x3269, below-reclaim-trigger x3011, weak-lower-wick x1388
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T05:05:01.797Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/3/5/below-reclaim-trigger/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=60 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1388 monitor observations without entry. Primary blockers so far: weak-close-location x3269, below-reclaim-trigger x3036, weak-lower-wick x1391
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+[2026-03-28T05:10:01.255Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/3/5/weak-lower-wick/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=135 | new_events=0 | alerts=3
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1460 monitor observations without entry. Primary blockers so far: weak-close-location x3269, below-reclaim-trigger x3060, weak-lower-wick x1439
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+ALERT: USDT-PAXG is also repeatedly failing reclaim quality. Do not relax reclaim rules until liquidity tolerance is tested first.
+[2026-03-28T05:15:01.337Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/3/5/weak-lower-wick/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=133 | new_events=0 | alerts=3
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1526 monitor observations without entry. Primary blockers so far: weak-close-location x3269, below-reclaim-trigger x3060, weak-lower-wick x1505
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
+ALERT: USDT-PAXG is also repeatedly failing reclaim quality. Do not relax reclaim rules until liquidity tolerance is tested first.
+[2026-03-28T05:20:01.431Z] Aegis monitor | pairs=6 | USDT-PAXG=reclaim-watch/2/5/weak-close-location/volume-too-light | USDT-BTC=regime-blocked/1/5/regime-fail | new_states=139 | new_events=0 | alerts=2
+ALERT: USDT-PAXG has reached score 3+ in an allowed regime for 1554 monitor observations without entry. Primary blockers so far: weak-close-location x3300, below-reclaim-trigger x3060, weak-lower-wick x1543
+ALERT: USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.

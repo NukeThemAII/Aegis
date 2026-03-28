@@ -1,0 +1,37 @@
+Aegis Monitor
+Generated: 2026-03-28T05:20:01.431Z
+Strategy: Aegis Regime Reclaim
+
+Configured Pairs
+- USDT-BNB | enabled=true | risk=conservative | log=changes | period=15m
+- USDT-BTC | enabled=true | risk=balanced | log=cycle | period=15m
+- USDT-ETH | enabled=true | risk=conservative | log=changes | period=15m
+- USDT-PAXG | enabled=true | risk=conservative | log=cycle | period=15m
+- USDT-PENDLE | enabled=true | risk=conservative | log=changes | period=15m
+- USDT-SOL | enabled=true | risk=conservative | log=changes | period=15m
+
+Latest Snapshot
+- USDT-BNB | stage=regime-blocked | regime=off(0/4) | score=1/5 | skip=regime-fail | reclaim=below-reclaim-trigger | liquidity=volume-too-light | phase=flat | seen=2026-03-28T05:20:01.431Z
+- USDT-BTC | stage=regime-blocked | regime=off(0/4) | score=1/5 | skip=regime-fail | reclaim=weak-lower-wick | liquidity=volume-too-light | phase=flat | seen=2026-03-28T05:20:01.431Z
+- USDT-ETH | stage=regime-blocked | regime=off(0/4) | score=1/5 | skip=regime-fail | reclaim=below-reclaim-trigger | liquidity=volume-too-light | phase=flat | seen=2026-03-28T05:20:01.431Z
+- USDT-PAXG | stage=reclaim-watch | regime=on(4/4) | score=2/5 | skip=weak-close-location | reclaim=weak-close-location | liquidity=volume-too-light | phase=flat | seen=2026-03-28T05:20:01.431Z
+- USDT-PENDLE | stage=regime-blocked | regime=off(0/4) | score=0/5 | skip=regime-fail | reclaim=below-reclaim-trigger | liquidity=volume-too-light | phase=flat | seen=2026-03-28T05:20:01.431Z
+- USDT-SOL | stage=regime-blocked | regime=off(0/4) | score=1/5 | skip=regime-fail | reclaim=below-reclaim-trigger | liquidity=volume-too-light | phase=flat | seen=2026-03-28T05:20:01.431Z
+
+Focus Pair
+- USDT-PAXG latest: stage=reclaim-watch score=2/5 skip=weak-close-location reclaim=weak-close-location liquidity=volume-too-light
+- USDT-PAXG near-ready observations=1554, liquidity-blocked near-ready=1475, reclaim-blocked near-ready=1300
+- USDT-PAXG top skip blockers: weak-close-location x3300, below-reclaim-trigger x3060, weak-lower-wick x1543
+
+Control Pair
+- USDT-BTC latest: stage=regime-blocked regime=off(0/4) score=1/5 skip=regime-fail
+- USDT-BTC regime-on observations=0, regime-blocked observations=7190
+
+New Log Activity
+- state lines processed this run: 139
+- event lines processed this run: 0
+- errors in this run: 0
+
+Alerts
+- USDT-PAXG has reached score 3+ in an allowed regime for 1554 monitor observations without entry. Primary blockers so far: weak-close-location x3300, below-reclaim-trigger x3060, weak-lower-wick x1543
+- USDT-PAXG repeatedly looks close enough to entry that pair-specific liquidity tuning should be tested in the simulator before changing global defaults.
