@@ -1,6 +1,6 @@
 /*
  * Aegis Regime Reclaim
- * Version: 1.3.1
+ * Version: 1.3.4
  * Updated: 2026-03-28
  *
  * Premium single-file Gunbot custom strategy.
@@ -9,7 +9,7 @@
 
 var AEGIS_META = {
   name: 'Aegis Regime Reclaim',
-  version: '1.3.1',
+  version: '1.3.4',
   updated: '2026-03-28'
 };
 
@@ -192,6 +192,41 @@ function safeBoolean(value, fallback) {
   return fallback;
 }
 
+function activeOverrides(gb) {
+  if (gb && gb.data) {
+    if (gb.data.whatstrat && typeof gb.data.whatstrat === 'object' && !Array.isArray(gb.data.whatstrat)) {
+      return gb.data.whatstrat;
+    }
+    if (gb.data.pairLedger && gb.data.pairLedger.whatstrat && typeof gb.data.pairLedger.whatstrat === 'object' && !Array.isArray(gb.data.pairLedger.whatstrat)) {
+      return gb.data.pairLedger.whatstrat;
+    }
+  }
+  return {};
+}
+
+function snapshotRuntimeData(sourceData) {
+  var snapshot = {};
+  var key;
+
+  if (!sourceData || typeof sourceData !== 'object') {
+    return snapshot;
+  }
+
+  for (key in sourceData) {
+    if (Object.prototype.hasOwnProperty.call(sourceData, key)) {
+      snapshot[key] = sourceData[key];
+    }
+  }
+
+  snapshot.pairName = safeString(sourceData.pairName, '');
+  snapshot.exchangeName = safeString(sourceData.exchangeName, '');
+  snapshot.period = safeNumber(sourceData.period, safeNumber(snapshot.period, 0));
+  snapshot.pairLedger = sourceData.pairLedger && typeof sourceData.pairLedger === 'object' ? sourceData.pairLedger : {};
+  snapshot.whatstrat = deepClone(activeOverrides({ data: sourceData }));
+
+  return snapshot;
+}
+
 function readFirstNumber(source, keys, fallback) {
   var i;
   var value;
@@ -354,7 +389,7 @@ function projectSignalVolume(signalVolume, lastTimestamp, periodMinutes, nowTime
 }
 
 function buildConfig(gb) {
-  var overrides = gb && gb.data && gb.data.pairLedger && gb.data.pairLedger.whatstrat ? gb.data.pairLedger.whatstrat : {};
+  var overrides = activeOverrides(gb);
   var config = deepClone(AEGIS_BASE_CONFIG);
 
   config.riskProfile = readFirstString(overrides, ['AEGIS_RISK_PROFILE'], config.riskProfile).toLowerCase();
@@ -512,22 +547,26 @@ function buildConfig(gb) {
 }
 
 function resolveGb(runtimeGb) {
+  var runtime;
+
   if (runtimeGb && runtimeGb.data && runtimeGb.method) {
-    return runtimeGb;
+    runtime = runtimeGb;
+  } else if (typeof globalThis !== 'undefined' && globalThis.gb && globalThis.gb.data && globalThis.gb.method) {
+    runtime = globalThis.gb;
+  } else if (typeof global !== 'undefined' && global.gb && global.gb.data && global.gb.method) {
+    runtime = global.gb;
+  } else {
+    throw new Error('Aegis could not resolve the Gunbot runtime object.');
   }
-  if (typeof globalThis !== 'undefined' && globalThis.gb && globalThis.gb.data && globalThis.gb.method) {
-    return globalThis.gb;
-  }
-  if (typeof global !== 'undefined' && global.gb && global.gb.data && global.gb.method) {
-    return global.gb;
-  }
-  throw new Error('Aegis could not resolve the Gunbot runtime object.');
+
+  return {
+    data: snapshotRuntimeData(runtime.data),
+    method: runtime.method
+  };
 }
 
 function isExpectedStrategyFile(gb, expectedName) {
-  var actual = gb && gb.data && gb.data.pairLedger && gb.data.pairLedger.whatstrat
-    ? safeString(gb.data.pairLedger.whatstrat.STRAT_FILENAME, '')
-    : '';
+  var actual = safeString(activeOverrides(gb).STRAT_FILENAME, '');
 
   return actual.toLowerCase() === String(expectedName || '').toLowerCase();
 }
@@ -1380,22 +1419,22 @@ function canUseBuyToggle(gb, config) {
   if (!config.risk.useBuyEnabled) {
     return true;
   }
-  return safeBoolean(gb.data.pairLedger.whatstrat.BUY_ENABLED, true);
+  return safeBoolean(activeOverrides(gb).BUY_ENABLED, true);
 }
 
 function canUseSellToggle(gb, config) {
   if (!config.risk.useSellEnabled) {
     return true;
   }
-  return safeBoolean(gb.data.pairLedger.whatstrat.SELL_ENABLED, true);
+  return safeBoolean(activeOverrides(gb).SELL_ENABLED, true);
 }
 
 function minBaseVolumeToBuy(gb) {
-  return Math.max(0, safeNumber(gb.data.pairLedger.whatstrat.MIN_VOLUME_TO_BUY, 0));
+  return Math.max(0, safeNumber(activeOverrides(gb).MIN_VOLUME_TO_BUY, 0));
 }
 
 function minBaseVolumeToSell(gb) {
-  return Math.max(0, safeNumber(gb.data.pairLedger.whatstrat.MIN_VOLUME_TO_SELL, 0));
+  return Math.max(0, safeNumber(activeOverrides(gb).MIN_VOLUME_TO_SELL, 0));
 }
 
 function availableBaseForBuys(gb, config) {
@@ -1417,23 +1456,73 @@ function hasUsableBag(gb) {
   return quoteBalance > 0 && (minSellBaseValue === 0 || positionValueBase >= minSellBaseValue);
 }
 
+function normalizeRecoveredEntryTime(rawValue) {
+  var whenBought = safeNumber(rawValue, 0);
+  if (whenBought > 1000000000 && whenBought < 1000000000000) {
+    return Math.round(whenBought * 1000);
+  }
+  if (whenBought >= 1000000000000) {
+    return Math.round(whenBought);
+  }
+  return 0;
+}
+
+function latestOrderTimestamp(gb, type) {
+  var orders = gb && gb.data && Array.isArray(gb.data.orders) ? gb.data.orders : [];
+  var pairName = gb && gb.data ? safeString(gb.data.pairName, '') : '';
+  var latest = 0;
+  var i;
+  var order;
+  var orderTime;
+
+  for (i = 0; i < orders.length; i += 1) {
+    order = orders[i];
+    if (!order || safeString(order.pair, '') !== pairName || safeString(order.type, '').toLowerCase() !== type) {
+      continue;
+    }
+    orderTime = safeNumber(order.time, 0);
+    if (orderTime > latest) {
+      latest = orderTime;
+    }
+  }
+
+  return latest;
+}
+
+function recoveredBagEntryTime(gb) {
+  var latestBuy = latestOrderTimestamp(gb, 'buy');
+  var latestSell = latestOrderTimestamp(gb, 'sell');
+  var whenBought = normalizeRecoveredEntryTime(gb && gb.data && gb.data.pairLedger ? gb.data.pairLedger.whenwebought : 0);
+
+  if (latestBuy > 0 && latestBuy >= latestSell) {
+    return latestBuy;
+  }
+  if (whenBought > 0 && whenBought >= latestSell) {
+    return whenBought;
+  }
+  return latestBuy > 0 ? latestBuy : whenBought;
+}
+
 function updateBagRecovery(gb, state, runtime, hasBag) {
-  var whenBought = safeNumber(gb.data.pairLedger.whenwebought, 0);
+  var recoveredEntryTime = recoveredBagEntryTime(gb);
   if (hasBag) {
     if (state.entryTime <= 0) {
-      if (whenBought > 1000000000 && whenBought < 1000000000000) {
-        state.entryTime = Math.round(whenBought * 1000);
-      } else if (whenBought >= 1000000000000) {
-        state.entryTime = Math.round(whenBought);
+      if (recoveredEntryTime > 0) {
+        state.entryTime = recoveredEntryTime;
       } else {
         state.entryTime = runtime.now;
       }
+    } else if (state.phase === 'entry-pending' && recoveredEntryTime > state.entryTime) {
+      state.entryTime = recoveredEntryTime;
     }
     if (state.lastFillPrice <= 0) {
       state.lastFillPrice = Math.max(safeNumber(gb.data.breakEven, 0), safeNumber(gb.data.bid, 0));
     }
     if (state.initialPositionSize <= 0) {
       state.initialPositionSize = safeNumber(gb.data.quoteBalance, 0);
+    }
+    if (state.phase === 'flat' || state.phase === 'cooldown') {
+      state.phase = state.tp1Done ? 'runner' : 'bag';
     }
     return;
   }
@@ -1891,6 +1980,7 @@ function clearChartObjects(gb) {
   delete gb.data.pairLedger.customBuyTarget;
   delete gb.data.pairLedger.customSellTarget;
   delete gb.data.pairLedger.customStopTarget;
+  delete gb.data.pairLedger.customCloseTarget;
   delete gb.data.pairLedger.customTrailingTarget;
   delete gb.data.pairLedger.customDcaTarget;
   gb.data.pairLedger.customChartTargets = [];
@@ -1903,7 +1993,7 @@ function createChartTarget(text, price, lineStyle, lineWidth, lineColor, bodyTex
     price: price,
     quantity: '',
     lineStyle: lineStyle,
-    lineLength: 8,
+    lineLength: 15,
     lineWidth: lineWidth,
     extendLeft: false,
     bodyBackgroundColor: lineColor,
@@ -1916,7 +2006,7 @@ function createChartTarget(text, price, lineStyle, lineWidth, lineColor, bodyTex
   };
 }
 
-function buildChartTargets(config, hasBag, frameMetrics, state, compositeScore) {
+function buildChartTargets(config, hasBag, frameMetrics, state, compositeScore, entryPrice) {
   var targets = [];
   var stopColor = AEGIS_COLORS.bad;
   var buyColor = AEGIS_COLORS.good;
@@ -1925,6 +2015,9 @@ function buildChartTargets(config, hasBag, frameMetrics, state, compositeScore) 
   var buyLabel = compositeScore >= config.risk.minEntryScore ? 'Aegis Buy Ready' : 'Aegis Buy Watch';
 
   if (hasBag) {
+    if (entryPrice > 0) {
+      targets.push(createChartTarget('Aegis Avg Fill', entryPrice, 1, 1, AEGIS_COLORS.neutral, '#111827'));
+    }
     targets.push(createChartTarget('Aegis TP1', frameMetrics.tp1Price, 0, 1, buyColor, '#122018'));
     targets.push(createChartTarget('Aegis Invalidation', frameMetrics.invalidationPrice, 2, 1, stopColor, '#2b1111'));
     if (!state.tp1Done && frameMetrics.dcaTarget > 0) {
@@ -2065,6 +2158,8 @@ function buildChartShapes(frameMetrics, hasBag, regimeMetrics, setupArmed) {
 }
 
 function updateCharts(gb, config, regimeMetrics, frameMetrics, state, hasBag, setupArmed, compositeScore) {
+  var entryPrice = Math.max(safeNumber(gb.data.breakEven, 0), safeNumber(state.lastFillPrice, 0));
+
   if (!config.visuals.enableCharts) {
     clearChartObjects(gb);
     return;
@@ -2073,15 +2168,17 @@ function updateCharts(gb, config, regimeMetrics, frameMetrics, state, hasBag, se
   gb.data.pairLedger.customBuyTarget = null;
   gb.data.pairLedger.customSellTarget = null;
   gb.data.pairLedger.customStopTarget = null;
+  gb.data.pairLedger.customCloseTarget = null;
   gb.data.pairLedger.customTrailingTarget = null;
   gb.data.pairLedger.customDcaTarget = null;
 
   if (hasBag) {
     gb.data.pairLedger.customSellTarget = frameMetrics.tp1Price;
     gb.data.pairLedger.customStopTarget = frameMetrics.invalidationPrice;
+    gb.data.pairLedger.customCloseTarget = state.tp1Done && state.trailStop > 0 ? state.trailStop : null;
     gb.data.pairLedger.customDcaTarget = state.tp1Done ? null : frameMetrics.dcaTarget;
     gb.data.pairLedger.customTrailingTarget = state.tp1Done ? state.trailStop : null;
-    gb.data.pairLedger.customChartTargets = buildChartTargets(config, true, frameMetrics, state, compositeScore);
+    gb.data.pairLedger.customChartTargets = buildChartTargets(config, true, frameMetrics, state, compositeScore, entryPrice);
     gb.data.pairLedger.customChartShapes = config.visuals.enableShapes
       ? buildChartShapes(frameMetrics, true, regimeMetrics, setupArmed)
       : [];
@@ -2092,7 +2189,7 @@ function updateCharts(gb, config, regimeMetrics, frameMetrics, state, hasBag, se
     gb.data.pairLedger.customBuyTarget = frameMetrics.entryTarget;
     gb.data.pairLedger.customSellTarget = frameMetrics.tp1Price;
     gb.data.pairLedger.customStopTarget = frameMetrics.invalidationPrice;
-    gb.data.pairLedger.customChartTargets = buildChartTargets(config, false, frameMetrics, state, compositeScore);
+    gb.data.pairLedger.customChartTargets = buildChartTargets(config, false, frameMetrics, state, compositeScore, 0);
     gb.data.pairLedger.customChartShapes = config.visuals.enableShapes
       ? buildChartShapes(frameMetrics, false, regimeMetrics, setupArmed)
       : [];

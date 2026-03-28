@@ -1,6 +1,6 @@
 /*
  * Mako Micro Scalper
- * Version: 1.0.0
+ * Version: 1.0.4
  * Updated: 2026-03-28
  *
  * Intrabar stretch-and-snapback Gunbot custom strategy.
@@ -9,7 +9,7 @@
 
 var MAKO_META = {
   name: 'Mako Micro Scalper',
-  version: '1.0.0',
+  version: '1.0.4',
   updated: '2026-03-28'
 };
 
@@ -199,6 +199,52 @@ function safeBoolean(value, fallback) {
     }
   }
   return fallback;
+}
+
+function activeOverrides(gb) {
+  if (gb && gb.data) {
+    if (gb.data.whatstrat && typeof gb.data.whatstrat === 'object' && !Array.isArray(gb.data.whatstrat)) {
+      return gb.data.whatstrat;
+    }
+    if (gb.data.pairLedger && gb.data.pairLedger.whatstrat && typeof gb.data.pairLedger.whatstrat === 'object' && !Array.isArray(gb.data.pairLedger.whatstrat)) {
+      return gb.data.pairLedger.whatstrat;
+    }
+  }
+  return {};
+}
+
+function snapshotRuntimeData(sourceData) {
+  var snapshot = {};
+  var key;
+
+  if (!sourceData || typeof sourceData !== 'object') {
+    return snapshot;
+  }
+
+  for (key in sourceData) {
+    if (Object.prototype.hasOwnProperty.call(sourceData, key)) {
+      snapshot[key] = sourceData[key];
+    }
+  }
+
+  snapshot.pairName = safeString(sourceData.pairName, '');
+  snapshot.exchangeName = safeString(sourceData.exchangeName, '');
+  snapshot.period = safeNumber(sourceData.period, safeNumber(snapshot.period, 0));
+  snapshot.pairLedger = sourceData.pairLedger && typeof sourceData.pairLedger === 'object' ? sourceData.pairLedger : {};
+  snapshot.whatstrat = deepClone(activeOverrides({ data: sourceData }));
+
+  return snapshot;
+}
+
+function normalizeTimestampToSeconds(value) {
+  var numeric = safeNumber(value, 0);
+  if (numeric > 1000000000000) {
+    return Math.floor(numeric / 1000);
+  }
+  if (numeric > 1000000000) {
+    return Math.floor(numeric);
+  }
+  return 0;
 }
 
 function readFirstNumber(source, keys, fallback) {
@@ -494,22 +540,26 @@ function calculateATR(high, low, close, period) {
 }
 
 function resolveGb(runtimeGb) {
+  var runtime;
+
   if (runtimeGb && runtimeGb.data && runtimeGb.method) {
-    return runtimeGb;
+    runtime = runtimeGb;
+  } else if (typeof globalThis !== 'undefined' && globalThis.gb && globalThis.gb.data && globalThis.gb.method) {
+    runtime = globalThis.gb;
+  } else if (typeof global !== 'undefined' && global.gb && global.gb.data && global.gb.method) {
+    runtime = global.gb;
+  } else {
+    throw new Error('Mako could not resolve the Gunbot runtime object.');
   }
-  if (typeof globalThis !== 'undefined' && globalThis.gb && globalThis.gb.data && globalThis.gb.method) {
-    return globalThis.gb;
-  }
-  if (typeof global !== 'undefined' && global.gb && global.gb.data && global.gb.method) {
-    return global.gb;
-  }
-  throw new Error('Mako could not resolve the Gunbot runtime object.');
+
+  return {
+    data: snapshotRuntimeData(runtime.data),
+    method: runtime.method
+  };
 }
 
 function isExpectedStrategyFile(gb, expectedName) {
-  var actual = gb && gb.data && gb.data.pairLedger && gb.data.pairLedger.whatstrat
-    ? safeString(gb.data.pairLedger.whatstrat.STRAT_FILENAME, '')
-    : '';
+  var actual = safeString(activeOverrides(gb).STRAT_FILENAME, '');
   return actual.toLowerCase() === String(expectedName || '').toLowerCase();
 }
 
@@ -558,9 +608,7 @@ function ensureState(gb) {
 }
 
 function readConfig(gb) {
-  var overrides = gb.data && gb.data.pairLedger && gb.data.pairLedger.whatstrat
-    ? gb.data.pairLedger.whatstrat
-    : {};
+  var overrides = activeOverrides(gb);
   var config = deepClone(MAKO_BASE_CONFIG);
 
   config.profile = readFirstString(overrides, ['MAKO_PROFILE', 'MAKO_RISK_PROFILE'], config.profile).toLowerCase();
@@ -727,11 +775,11 @@ function quoteAmountToBaseValue(amountQuote, price) {
 }
 
 function minimumBuyBaseValue(gb) {
-  return Math.max(0, safeNumber(gb.data.pairLedger.whatstrat.MIN_VOLUME_TO_BUY, 0));
+  return Math.max(0, safeNumber(activeOverrides(gb).MIN_VOLUME_TO_BUY, 0));
 }
 
 function minimumSellBaseValue(gb) {
-  return Math.max(0, safeNumber(gb.data.pairLedger.whatstrat.MIN_VOLUME_TO_SELL, 0));
+  return Math.max(0, safeNumber(activeOverrides(gb).MIN_VOLUME_TO_SELL, 0));
 }
 
 function projectSignalVolume(signalVolume, signalTimestamp, now, periodMinutes, minProgressRatio) {
@@ -864,7 +912,7 @@ function analyzeFrame(gb, config, state, now, hasBag) {
     };
   }
 
-  currentPeriodMinutes = Math.max(1, Math.floor(readFirstNumber(gb.data.pairLedger.whatstrat || {}, ['PERIOD'], 5)));
+  currentPeriodMinutes = Math.max(1, Math.floor(readFirstNumber(activeOverrides(gb), ['PERIOD'], 5)));
   periodMs = currentPeriodMinutes * 60 * 1000;
   signalTimestamp = timestamp.length ? safeNumber(timestamp[lastIndex], 0) : 0;
 
@@ -1290,19 +1338,88 @@ function clearChartObjects(gb) {
   gb.data.pairLedger.customBuyTarget = null;
   gb.data.pairLedger.customSellTarget = null;
   gb.data.pairLedger.customStopTarget = null;
+  gb.data.pairLedger.customCloseTarget = null;
   gb.data.pairLedger.customTrailingTarget = null;
   gb.data.pairLedger.customDcaTarget = null;
   gb.data.pairLedger.customChartTargets = [];
   gb.data.pairLedger.customChartShapes = [];
 }
 
+function createChartTarget(text, price, quantity, lineStyle, lineWidth, lineColor, bodyTextColor) {
+  if (!isFinite(price) || price <= 0) {
+    return null;
+  }
+  return {
+    text: text,
+    price: price,
+    quantity: quantity || '',
+    lineStyle: lineStyle,
+    lineLength: 15,
+    lineWidth: lineWidth,
+    extendLeft: false,
+    bodyBackgroundColor: lineColor,
+    bodyTextColor: bodyTextColor,
+    bodyBorderColor: 'rgba(0,0,0,0)',
+    quantityBackgroundColor: lineColor,
+    quantityTextColor: bodyTextColor,
+    quantityBorderColor: 'rgba(0,0,0,0)',
+    lineColor: lineColor
+  };
+}
+
+function buildRectangleShape(startTime, endTime, topPrice, bottomPrice, fillColor, borderColor) {
+  if (!startTime || !endTime || !isFinite(topPrice) || !isFinite(bottomPrice)) {
+    return null;
+  }
+  if (topPrice <= 0 || bottomPrice <= 0 || topPrice <= bottomPrice) {
+    return null;
+  }
+  return {
+    points: [
+      { time: startTime, price: topPrice },
+      { time: endTime, price: bottomPrice }
+    ],
+    options: {
+      shape: 'rectangle',
+      lock: true,
+      disableSelection: true,
+      disableSave: true,
+      disableUndo: true,
+      showInObjectsTree: false,
+      setInBackground: true,
+      overrides: {
+        backgroundColor: fillColor,
+        color: borderColor,
+        textColor: borderColor,
+        fillBackground: true
+      }
+    }
+  };
+}
+
+function buildShapeWindow(frameMetrics, candlesBack, candlesForward) {
+  var lastTime = normalizeTimestampToSeconds(frameMetrics.lastTimestamp);
+  var periodSeconds = Math.max(60, Math.floor(safeNumber(frameMetrics.currentPeriodMinutes, 1) * 60));
+
+  if (!lastTime) {
+    lastTime = Math.floor(Date.now() / 1000);
+  }
+
+  return {
+    startTime: lastTime - (periodSeconds * Math.max(1, candlesBack || 1)),
+    endTime: lastTime + (periodSeconds * Math.max(1, candlesForward || 1))
+  };
+}
+
 function setChartObjects(gb, config, state, frameMetrics, hasBag) {
-  var now = Date.now();
-  var horizon = now + frameMetrics.periodMs;
   var targets = [];
   var shapes = [];
   var zoneTop = frameMetrics.entryTrigger;
   var zoneBottom = frameMetrics.lowerStretchPrice;
+  var entryPrice = Math.max(safeNumber(gb.data.breakEven, 0), safeNumber(state.lastFillPrice, 0));
+  var riskTop = Math.max(frameMetrics.entryTrigger, entryPrice, frameMetrics.bid);
+  var window = buildShapeWindow(frameMetrics, 1, 1);
+  var target;
 
   if (!config.visuals.enableCharts) {
     clearChartObjects(gb);
@@ -1311,24 +1428,55 @@ function setChartObjects(gb, config, state, frameMetrics, hasBag) {
 
   gb.data.pairLedger.customBuyTarget = !hasBag ? frameMetrics.entryTrigger : null;
   gb.data.pairLedger.customSellTarget = hasBag ? (state.tp1Done ? frameMetrics.meanExitPrice : frameMetrics.tp1Price) : null;
+  gb.data.pairLedger.customCloseTarget = hasBag ? frameMetrics.meanExitPrice : null;
   gb.data.pairLedger.customStopTarget = frameMetrics.stopPrice;
   gb.data.pairLedger.customTrailingTarget = state.tp1Done && state.trailStop > 0 ? state.trailStop : null;
   gb.data.pairLedger.customDcaTarget = hasBag && state.layerCount < config.layers.maxCount ? frameMetrics.reloadTarget : null;
 
-  targets.push(['Mako Anchor', frameMetrics.anchor, MAKO_COLORS.info]);
-  targets.push(['Mako Fast', frameMetrics.fast, MAKO_COLORS.neutral]);
-  targets.push(['Mako Trigger', frameMetrics.entryTrigger, MAKO_COLORS.warn]);
-  targets.push(['Mako Stop', frameMetrics.stopPrice, MAKO_COLORS.bad]);
+  target = createChartTarget('Mako Anchor', frameMetrics.anchor, '', 1, 1, MAKO_COLORS.info, '#0f1a2b');
+  if (target) {
+    targets.push(target);
+  }
+  target = createChartTarget('Mako Fast', frameMetrics.fast, '', 1, 1, MAKO_COLORS.neutral, '#111827');
+  if (target) {
+    targets.push(target);
+  }
+  if (hasBag && entryPrice > 0) {
+    target = createChartTarget('Mako Entry Fill', entryPrice, '', 1, 1, MAKO_COLORS.neutral, '#111827');
+    if (target) {
+      targets.push(target);
+    }
+  }
+  target = createChartTarget('Mako Trigger', frameMetrics.entryTrigger, '', 0, 2, MAKO_COLORS.warn, '#2b2110');
+  if (target) {
+    targets.push(target);
+  }
+  target = createChartTarget('Mako Stop', frameMetrics.stopPrice, '', 2, 1, MAKO_COLORS.bad, '#2b1111');
+  if (target) {
+    targets.push(target);
+  }
 
   if (hasBag) {
-    targets.push(['Mako TP1', frameMetrics.tp1Price, MAKO_COLORS.good]);
-    targets.push(['Mako Mean Exit', frameMetrics.meanExitPrice, MAKO_COLORS.info]);
+    target = createChartTarget('Mako TP1', frameMetrics.tp1Price, '', 0, 2, MAKO_COLORS.good, '#122018');
+    if (target) {
+      targets.push(target);
+    }
+    target = createChartTarget('Mako Mean Exit', frameMetrics.meanExitPrice, '', 1, 1, MAKO_COLORS.info, '#0f1a2b');
+    if (target) {
+      targets.push(target);
+    }
   }
   if (state.tp1Done && state.trailStop > 0) {
-    targets.push(['Mako Trail', state.trailStop, MAKO_COLORS.warn]);
+    target = createChartTarget('Mako Trail', state.trailStop, '', 0, 2, MAKO_COLORS.warn, '#2b2110');
+    if (target) {
+      targets.push(target);
+    }
   }
   if (hasBag && state.layerCount < config.layers.maxCount) {
-    targets.push(['Mako Layer', frameMetrics.reloadTarget, MAKO_COLORS.neutral]);
+    target = createChartTarget('Mako Layer', frameMetrics.reloadTarget, '', 1, 1, MAKO_COLORS.neutral, '#111827');
+    if (target) {
+      targets.push(target);
+    }
   }
   gb.data.pairLedger.customChartTargets = targets;
 
@@ -1338,29 +1486,17 @@ function setChartObjects(gb, config, state, frameMetrics, hasBag) {
   }
 
   if (!hasBag && frameMetrics.stretch.ok) {
-    shapes.push({
-      type: 'rect',
-      id: 'mako-stretch-zone',
-      from: now,
-      to: horizon,
-      y1: zoneTop,
-      y2: zoneBottom,
-      borderColor: MAKO_COLORS.zoneBorder,
-      color: MAKO_COLORS.zoneFill
-    });
+    target = buildRectangleShape(window.startTime, window.endTime, zoneTop, zoneBottom, MAKO_COLORS.zoneFill, MAKO_COLORS.zoneBorder);
+    if (target) {
+      shapes.push(target);
+    }
   }
 
   if ((hasBag || frameMetrics.stretch.ok) && frameMetrics.stopPrice > 0) {
-    shapes.push({
-      type: 'rect',
-      id: 'mako-risk-zone',
-      from: now,
-      to: horizon,
-      y1: Math.max(frameMetrics.entryTrigger, state.lastFillPrice || 0, frameMetrics.bid),
-      y2: frameMetrics.stopPrice,
-      borderColor: MAKO_COLORS.riskBorder,
-      color: MAKO_COLORS.riskFill
-    });
+    target = buildRectangleShape(window.startTime, window.endTime, riskTop, frameMetrics.stopPrice, MAKO_COLORS.riskFill, MAKO_COLORS.riskBorder);
+    if (target) {
+      shapes.push(target);
+    }
   }
 
   gb.data.pairLedger.customChartShapes = shapes;
@@ -1381,6 +1517,14 @@ function updateSidebar(gb, config, frameMetrics, state, runtime, hasBag, setupAr
     { label: 'RelVol', value: roundTo(frameMetrics.liquidity.relativeVolume, 2).toFixed(2) + 'x', valueColor: frameMetrics.liquidity.ok ? MAKO_COLORS.good : MAKO_COLORS.bad },
     { label: 'Skip', value: skipReason, valueColor: MAKO_COLORS.warn }
   ];
+}
+
+function emitChartMark(gb, message) {
+  try {
+    gb.method.setTimeScaleMark(gb.data.pairName, gb.data.exchangeName, message);
+  } catch (err) {
+    console.log(logPrefix(gb) + '[WARN][mark] Could not add timescale mark: ' + String(err && err.message ? err.message : err));
+  }
 }
 
 async function executeBuy(gb, config, state, amountQuote, label, frameMetrics) {
@@ -1417,6 +1561,7 @@ async function executeBuy(gb, config, state, amountQuote, label, frameMetrics) {
     state.phase = 'bag';
   }
 
+  emitChartMark(gb, 'Mako ' + label + ' @ ' + formatPrice(executionPrice));
   return true;
 }
 
@@ -1465,6 +1610,7 @@ async function executeSell(gb, state, amountQuote, label, frameMetrics, config, 
     state.trailStop = Math.max(frameMetrics.bid * (1 - (config.exits.trailPct / 100)), safeNumber(gb.data.breakEven, 0));
   }
 
+  emitChartMark(gb, 'Mako ' + label + ' @ ' + formatPrice(executionPrice));
   return true;
 }
 
@@ -1478,8 +1624,8 @@ async function runMako(gb) {
   };
   var hasBag = safeNumber(gb.data.quoteBalance, 0) > 0;
   var hasOpenOrders = Array.isArray(gb.data.openOrders) && gb.data.openOrders.length > 0;
-  var buyEnabled = config.execution.useBuyEnabled ? safeBoolean(gb.data.pairLedger.whatstrat.BUY_ENABLED, true) : true;
-  var sellEnabled = config.execution.useSellEnabled ? safeBoolean(gb.data.pairLedger.whatstrat.SELL_ENABLED, true) : true;
+  var buyEnabled = config.execution.useBuyEnabled ? safeBoolean(activeOverrides(gb).BUY_ENABLED, true) : true;
+  var sellEnabled = config.execution.useSellEnabled ? safeBoolean(activeOverrides(gb).SELL_ENABLED, true) : true;
   var availableBase = safeNumber(gb.data.baseBalance, 0) - config.capital.fundsReserveBase;
   var enoughEntryBalance = availableBase >= config.capital.tradeLimitBase;
   var frameMetrics;

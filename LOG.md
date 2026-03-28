@@ -1401,3 +1401,258 @@ Verified from official docs:
 3. Keep Aegis and Mako tuning independent:
    - Aegis remains the selective regime product
    - Mako is now the pure simulator HFT lane
+
+## 2026-03-28 - Kestrel immediate time-stop bug audit and fix
+
+### What was analyzed
+
+- Reviewed live Gunbot logs for `USDT-SOL` after the user reported simulated red PnL.
+- Cross-checked `Kestrel.js`, `/home/xaos/gunbot/config.js`, and the live state files in `/home/xaos/gunbot/json/`.
+- Compared the actual order timestamps in `binance-USDT-SOL-state.json` and `binance-USDT-BNB-state.json` against Kestrel log events.
+
+### Findings
+
+- `USDT-SOL` completed three losing round trips:
+  - `2026-03-28T06:40:43.192Z` buy -> `2026-03-28T06:40:49.771Z` sell
+  - `2026-03-28T08:26:21.446Z` buy -> `2026-03-28T08:26:27.655Z` sell
+  - `2026-03-28T08:36:30.486Z` buy -> `2026-03-28T08:36:37.084Z` sell
+- `USDT-BNB` showed the same pattern:
+  - `2026-03-28T08:37:53.698Z` buy -> `2026-03-28T08:38:00.583Z` sell
+- All of those exits were labeled by Kestrel as `time-stop`, which is inconsistent with the configured `60` minute aggressive-profile timeout.
+- Root cause:
+  - Gunbot `whenwebought` on these pairs was stale from the previous day:
+    - `USDT-SOL`: `2026-03-27T19:08:09.886Z`
+    - `USDT-BNB`: `2026-03-27T19:02:53.051Z`
+  - Kestrel bag recovery could fall back to that stale timestamp.
+  - Fresh bags were therefore sometimes treated as already many hours old.
+  - The next cycle then satisfied the time-stop age check and sold almost immediately, realizing only fees/spread loss.
+
+### Behavior changed
+
+- Updated `Kestrel.js` to `1.1.2`.
+- Added active-bag entry-time recovery from actual local order history instead of trusting stale `whenwebought` alone.
+- Added `KESTREL_POST_ENTRY_GRACE_SECONDS`:
+  - default `60`
+  - conservative profile `90`
+  - aggressive profile `45`
+- Momentum exits and time-stop exits are now blocked during the post-entry grace window.
+- Hard stop logic remains immediate.
+
+### Files changed
+
+- `Kestrel.js`
+- `KESTREL.md`
+- `LOG.md`
+- `MEMORY.md`
+
+### Verification
+
+- `node --check /home/xaos/gunbot/customStrategies/Kestrel.js`
+- manual code-path review of:
+  - bag recovery
+  - time-stop gating
+  - immediate post-entry discretionary sell protection
+
+### Next
+
+1. Watch the next Kestrel entries on `USDT-SOL` and `USDT-BNB`.
+2. Confirm there are no more sub-10-second `time-stop` exits.
+3. Only after the bug fix is validated should Kestrel pair aggressiveness be re-tuned.
+
+## 2026-03-28 - Gunbot chart drawing docs audit and visualization compatibility fix
+
+### What was analyzed
+
+- Reviewed the official Gunbot visualization docs the user linked:
+  - `https://www.gunbot.com/blog/visualize-your-strategy-gunbots-chart-drawing-tools/`
+  - `https://www.gunbot.com/support/docs/custom-strategies/visualize-strategy-targets/`
+  - `https://www.gunbot.com/support/docs/custom-strategies/display-custom-stats/`
+  - `https://www.gunbot.com/support/docs/custom-strategies/example-strategies/overview/`
+- Compared the documented chart target and shape payload formats against the runtime output in:
+  - `/home/xaos/gunbot/json/binance-USDT-XRP-state.json`
+  - `/home/xaos/gunbot/gunbot_logs/gunbot_logs.txt`
+- Audited the chart object builders inside:
+  - `Aegis.js`
+  - `Kestrel.js`
+  - `Mako.js`
+
+### Findings
+
+- `sidebarExtras` usage was already compatible with the Gunbot docs.
+- `Aegis.js` was mostly aligned already, but it did not expose an explicit active close target and could present less useful in-bag fill context than it should.
+- `Kestrel.js` and `Mako.js` were still using undocumented shorthand chart payloads:
+  - `customChartTargets` entries as short arrays instead of labeled target objects
+  - `customChartShapes` entries as local shorthand rectangles instead of documented `points` plus `options` objects
+- That shorthand is not what the current Gunbot docs describe, and it is the most likely reason users were not seeing the expected visuals reliably on chart.
+
+### Behavior changed
+
+- `Aegis.js` updated to `1.3.3`
+  - chart cleanup now also clears `customCloseTarget`
+  - active bags now draw an explicit average fill line
+  - runner state now publishes `customCloseTarget` from the active trail stop
+  - target line length increased to improve visibility
+- `Kestrel.js` updated to `1.1.4`
+  - all target lines now use documented object payloads
+  - all chart rectangles now use documented `points` plus `options` payloads
+  - active bag fill and close/trail targets are now exposed explicitly
+- `Mako.js` updated to `1.0.2`
+  - all target lines now use documented object payloads
+  - all chart rectangles now use documented `points` plus `options` payloads
+  - active bag fill and close targets are now exposed explicitly
+
+### Files changed
+
+- `Aegis.js`
+- `Kestrel.js`
+- `Mako.js`
+- `LOG.md`
+- `MEMORY.md`
+
+### Verification
+
+- `node --check /home/xaos/gunbot/customStrategies/Aegis.js`
+- `node --check /home/xaos/gunbot/customStrategies/Kestrel.js`
+- `node --check /home/xaos/gunbot/customStrategies/Mako.js`
+- live log verification:
+  - `Aegis Regime Reclaim 1.3.3`
+  - `Kestrel Tape Scalper 1.1.4`
+  - `Mako Micro Scalper 1.0.2`
+- state-file verification:
+  - `/home/xaos/gunbot/json/binance-USDT-XRP-state.json` now contains object-based `customChartTargets`, `customChartShapes`, and `customCloseTarget`
+
+### Runtime assumptions
+
+- Current Gunbot builds are safest when chart objects follow the documented schema exactly.
+- Local shorthand payloads for targets or shapes should be treated as unsafe even if they appear to work intermittently.
+- State JSON files can be mid-write while Gunbot is cycling, so grep/string inspection is safer than strict JSON parsing during live verification.
+
+### Next
+
+1. Visually confirm the new targets and rectangles in the Gunbot GUI for:
+   - `USDT-PAXG`
+   - `USDT-PENDLE`
+   - `USDT-XRP`
+2. If fills still do not show clearly on chart, add time-scale markers on executed buy and sell events in all three strategies.
+3. Keep future visual work on the documented Gunbot target and shape schema only.
+
+## 2026-03-28 - Mako trade marker parity
+
+### What changed
+
+- `Mako.js` updated to `1.0.3`.
+- Added the same `setTimeScaleMark` trade-marker behavior already used in `Aegis.js` and `Kestrel.js`.
+- Mako now stamps executed buy and sell events directly onto the chart timeline with:
+  - `Mako entry @ ...`
+  - `Mako layer @ ...`
+  - `Mako tp1 @ ...`
+  - `Mako stop @ ...`
+  - `Mako mean @ ...`
+  - `Mako trail @ ...`
+  - `Mako time @ ...`
+
+### Why
+
+- The target-line and rectangle fix covers static chart context.
+- Explicit time-scale marks cover actual executed trade events.
+- This keeps all three strategy products aligned on chart observability.
+
+### Files changed
+
+- `Mako.js`
+- `LOG.md`
+- `MEMORY.md`
+
+### Verification
+
+- `node --check /home/xaos/gunbot/customStrategies/Mako.js`
+
+### Next
+
+1. Wait for the next actual Mako order on its assigned pair and confirm the time-scale trade marker appears in the GUI.
+2. If the marker does not appear, inspect Gunbot build support for `setTimeScaleMark` on the active pair and strategy assignment first.
+
+## 2026-03-28 - PENDLE and PAXG trade incident audit, runtime snapshot hardening
+
+### What was analyzed
+
+- Reviewed the latest live losses reported by the user on:
+  - `USDT-PENDLE`
+  - `USDT-PAXG`
+- Correlated:
+  - `gunbot_logs.txt`
+  - `/home/xaos/gunbot/json/binance-USDT-PENDLE-state.json`
+  - `/home/xaos/gunbot/json/binance-USDT-PAXG-state.json`
+  - `/home/xaos/gunbot/config.js`
+- Compared current active pair assignments against the actual strategy prefixes appearing in live logs.
+
+### Findings
+
+- `USDT-PENDLE` is configured for `Kestrel.js`, but the loss exit was executed by `Aegis.js`:
+  - buy: `2026-03-28T10:00:45.808Z` at `1.1720`
+  - sell: `2026-03-28T10:12:30.709Z` at `1.1710`
+  - realized PnL: about `-0.1425 USDT`
+  - live log evidence:
+    - `[Aegis Regime Reclaim 1.3.3][binance][USDT-PENDLE][INFO][stale] ...`
+- `USDT-PAXG` is configured for `Aegis.js`, but the live window also showed `Kestrel.js` state lines on that pair before the loss:
+  - buy: `2026-03-28T10:20:49.624Z` at `4504.49`
+  - sell: `2026-03-28T10:20:53.164Z` at `4504.48`
+  - realized PnL: about `-0.2001 USDT`
+  - live log evidence:
+    - `Kestrel Tape Scalper 1.1.4` state lines on `USDT-PAXG`
+    - `Aegis Regime Reclaim 1.3.3` then recovered the bag and stale-sold it
+- Conclusion:
+  - the PENDLE loss was not a valid Kestrel thesis exit
+  - the PAXG loss was not a valid Aegis thesis exit
+  - both incidents were caused by runtime-safety defects, not by intended signal logic
+
+### Root causes
+
+1. Shared async Gunbot runtime object was being used directly:
+   - each strategy resolved a live mutable `gb` object
+   - during async execution, pair context could drift across pairs
+   - this allowed one strategy to log or act on another pair mid-cycle
+2. `Aegis.js` bag recovery was too trusting of stale ledger timing:
+   - it relied on `whenwebought`
+   - fresh bags detected from the ledger could still be treated as old enough for stale exit logic
+   - this is the same class of issue previously fixed in `Kestrel.js`
+
+### Behavior changed
+
+- `Aegis.js` updated to `1.3.4`
+  - runtime resolution now snapshots pair data, pair name, exchange name, overrides, and the pair ledger at cycle start
+  - bag recovery now uses the latest local order history first and only falls back to `whenwebought`
+- `Kestrel.js` updated to `1.1.5`
+  - runtime resolution now snapshots pair data, pair name, exchange name, overrides, and the pair ledger at cycle start
+- `Mako.js` updated to `1.0.4`
+  - runtime resolution now snapshots pair data, pair name, exchange name, overrides, and the pair ledger at cycle start
+
+### Files changed
+
+- `Aegis.js`
+- `Kestrel.js`
+- `Mako.js`
+- `LOG.md`
+- `MEMORY.md`
+
+### Verification
+
+- `node --check /home/xaos/gunbot/customStrategies/Aegis.js`
+- `node --check /home/xaos/gunbot/customStrategies/Kestrel.js`
+- `node --check /home/xaos/gunbot/customStrategies/Mako.js`
+- live version verification:
+  - `Aegis Regime Reclaim 1.3.4`
+  - `Kestrel Tape Scalper 1.1.5`
+  - `Mako Micro Scalper 1.0.4`
+- post-fix isolation check:
+  - no new `Aegis 1.3.4` lines on `USDT-PENDLE`
+  - no new `Kestrel 1.1.5` lines on `USDT-PAXG`
+  - no new `Mako 1.0.4` lines on non-XRP pairs in the reviewed window
+
+### Next
+
+1. Watch the next fresh PAXG and PENDLE bag events specifically for:
+   - correct strategy prefix on the correct pair
+   - no immediate stale recovery exit on fresh bags
+2. If any wrong-pair log prefix appears again after `1.3.4` / `1.1.5` / `1.0.4`, treat it as a new Gunbot runtime behavior change and inspect immediately.
+3. Do not retune PENDLE or PAXG entry logic based on these two losses; they were bug-driven, not strategy-quality evidence.

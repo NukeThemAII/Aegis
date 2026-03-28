@@ -1,6 +1,6 @@
 /*
  * Kestrel Tape Scalper
- * Version: 1.1.1
+ * Version: 1.1.5
  * Updated: 2026-03-28
  *
  * Fast single-file Gunbot custom strategy.
@@ -9,7 +9,7 @@
 
 var KESTREL_META = {
   name: 'Kestrel Tape Scalper',
-  version: '1.1.1',
+  version: '1.1.5',
   updated: '2026-03-28'
 };
 
@@ -86,6 +86,7 @@ var KESTREL_BASE_CONFIG = {
     hardStopPct: 0.75,
     stopLookback: 6,
     stopBufferPct: 0.12,
+    postEntryGraceSeconds: 60,
     timeStopMinutes: 90,
     timeStopMaxProfitPct: 0.20,
     momentumExitRsi: 44
@@ -120,6 +121,7 @@ function applyRiskProfile(config) {
     config.exits.trailTriggerPct = 0.28;
     config.exits.trailPct = 0.18;
     config.exits.hardStopPct = 0.60;
+    config.exits.postEntryGraceSeconds = 90;
     config.exits.timeStopMinutes = 60;
     return;
   }
@@ -141,6 +143,7 @@ function applyRiskProfile(config) {
     config.exits.trailTriggerPct = 0.22;
     config.exits.trailPct = 0.20;
     config.exits.hardStopPct = 0.90;
+    config.exits.postEntryGraceSeconds = 45;
     config.exits.timeStopMinutes = 60;
   }
 }
@@ -191,6 +194,41 @@ function safeBoolean(value, fallback) {
     }
   }
   return fallback;
+}
+
+function activeOverrides(gb) {
+  if (gb && gb.data) {
+    if (gb.data.whatstrat && typeof gb.data.whatstrat === 'object' && !Array.isArray(gb.data.whatstrat)) {
+      return gb.data.whatstrat;
+    }
+    if (gb.data.pairLedger && gb.data.pairLedger.whatstrat && typeof gb.data.pairLedger.whatstrat === 'object' && !Array.isArray(gb.data.pairLedger.whatstrat)) {
+      return gb.data.pairLedger.whatstrat;
+    }
+  }
+  return {};
+}
+
+function snapshotRuntimeData(sourceData) {
+  var snapshot = {};
+  var key;
+
+  if (!sourceData || typeof sourceData !== 'object') {
+    return snapshot;
+  }
+
+  for (key in sourceData) {
+    if (Object.prototype.hasOwnProperty.call(sourceData, key)) {
+      snapshot[key] = sourceData[key];
+    }
+  }
+
+  snapshot.pairName = safeString(sourceData.pairName, '');
+  snapshot.exchangeName = safeString(sourceData.exchangeName, '');
+  snapshot.period = safeNumber(sourceData.period, safeNumber(snapshot.period, 0));
+  snapshot.pairLedger = sourceData.pairLedger && typeof sourceData.pairLedger === 'object' ? sourceData.pairLedger : {};
+  snapshot.whatstrat = deepClone(activeOverrides({ data: sourceData }));
+
+  return snapshot;
 }
 
 function clamp(value, minValue, maxValue) {
@@ -309,6 +347,17 @@ function normalizeTimestampToMillis(value) {
   return 0;
 }
 
+function normalizeTimestampToSeconds(value) {
+  var numeric = safeNumber(value, 0);
+  if (numeric > 1000000000000) {
+    return Math.floor(numeric / 1000);
+  }
+  if (numeric > 1000000000) {
+    return Math.floor(numeric);
+  }
+  return 0;
+}
+
 function candleProgressRatio(lastTimestamp, periodMinutes, nowTimestamp, floor) {
   var openedAt = normalizeTimestampToMillis(lastTimestamp);
   var periodMs = Math.max(1, safeNumber(periodMinutes, 0)) * 60 * 1000;
@@ -349,7 +398,7 @@ function projectSignalVolume(signalVolume, lastTimestamp, periodMinutes, nowTime
 }
 
 function buildConfig(gb) {
-  var overrides = gb && gb.data && gb.data.pairLedger && gb.data.pairLedger.whatstrat ? gb.data.pairLedger.whatstrat : {};
+  var overrides = activeOverrides(gb);
   var config = deepClone(KESTREL_BASE_CONFIG);
 
   config.riskProfile = readFirstString(overrides, ['KESTREL_RISK_PROFILE'], config.riskProfile).toLowerCase();
@@ -438,6 +487,11 @@ function buildConfig(gb) {
   config.exits.hardStopPct = readFirstNumber(overrides, ['KESTREL_HARD_STOP_PCT'], config.exits.hardStopPct);
   config.exits.stopLookback = readFirstNumber(overrides, ['KESTREL_STOP_LOOKBACK'], config.exits.stopLookback);
   config.exits.stopBufferPct = readFirstNumber(overrides, ['KESTREL_STOP_BUFFER_PCT'], config.exits.stopBufferPct);
+  config.exits.postEntryGraceSeconds = readFirstNumber(
+    overrides,
+    ['KESTREL_POST_ENTRY_GRACE_SECONDS'],
+    config.exits.postEntryGraceSeconds
+  );
   config.exits.timeStopMinutes = readFirstNumber(overrides, ['KESTREL_TIME_STOP_MINUTES'], config.exits.timeStopMinutes);
   config.exits.timeStopMaxProfitPct = readFirstNumber(
     overrides,
@@ -472,27 +526,32 @@ function buildConfig(gb) {
   config.reload.maxCount = Math.max(0, Math.floor(config.reload.maxCount));
   config.exits.tp1SellRatio = clamp(config.exits.tp1SellRatio, 0.05, 1.0);
   config.exits.stopLookback = Math.max(2, config.exits.stopLookback);
+  config.exits.postEntryGraceSeconds = Math.max(0, config.exits.postEntryGraceSeconds);
 
   return config;
 }
 
 function resolveGb(runtimeGb) {
+  var runtime;
+
   if (runtimeGb && runtimeGb.data && runtimeGb.method) {
-    return runtimeGb;
+    runtime = runtimeGb;
+  } else if (typeof globalThis !== 'undefined' && globalThis.gb && globalThis.gb.data && globalThis.gb.method) {
+    runtime = globalThis.gb;
+  } else if (typeof global !== 'undefined' && global.gb && global.gb.data && global.gb.method) {
+    runtime = global.gb;
+  } else {
+    throw new Error('Kestrel could not resolve the Gunbot runtime object.');
   }
-  if (typeof globalThis !== 'undefined' && globalThis.gb && globalThis.gb.data && globalThis.gb.method) {
-    return globalThis.gb;
-  }
-  if (typeof global !== 'undefined' && global.gb && global.gb.data && global.gb.method) {
-    return global.gb;
-  }
-  throw new Error('Kestrel could not resolve the Gunbot runtime object.');
+
+  return {
+    data: snapshotRuntimeData(runtime.data),
+    method: runtime.method
+  };
 }
 
 function isExpectedStrategyFile(gb, expectedName) {
-  var actual = gb && gb.data && gb.data.pairLedger && gb.data.pairLedger.whatstrat
-    ? safeString(gb.data.pairLedger.whatstrat.STRAT_FILENAME, '')
-    : '';
+  var actual = safeString(activeOverrides(gb).STRAT_FILENAME, '');
 
   return actual.toLowerCase() === String(expectedName || '').toLowerCase();
 }
@@ -931,7 +990,7 @@ function analyzeFrame(gb, config, state, hasBag) {
   atrLast = lastDefined(atrSeries) || Math.max(0, highLast - lowLast);
   recentHigh = highestFromEnd(high, config.pullback.lookback);
   swingLow = lowestFromEnd(low, config.exits.stopLookback);
-  currentPeriodMinutes = safeNumber(gb.data.period, safeNumber(gb.data.pairLedger.whatstrat.PERIOD, 0));
+  currentPeriodMinutes = safeNumber(gb.data.period, safeNumber(activeOverrides(gb).PERIOD, 0));
   if (!currentPeriodMinutes) {
     currentPeriodMinutes = 5;
   }
@@ -1106,22 +1165,22 @@ function canUseBuyToggle(gb, config) {
   if (!config.risk.useBuyEnabled) {
     return true;
   }
-  return safeBoolean(gb.data.pairLedger.whatstrat.BUY_ENABLED, true);
+  return safeBoolean(activeOverrides(gb).BUY_ENABLED, true);
 }
 
 function canUseSellToggle(gb, config) {
   if (!config.risk.useSellEnabled) {
     return true;
   }
-  return safeBoolean(gb.data.pairLedger.whatstrat.SELL_ENABLED, true);
+  return safeBoolean(activeOverrides(gb).SELL_ENABLED, true);
 }
 
 function minBaseVolumeToBuy(gb) {
-  return Math.max(0, safeNumber(gb.data.pairLedger.whatstrat.MIN_VOLUME_TO_BUY, 0));
+  return Math.max(0, safeNumber(activeOverrides(gb).MIN_VOLUME_TO_BUY, 0));
 }
 
 function minBaseVolumeToSell(gb) {
-  return Math.max(0, safeNumber(gb.data.pairLedger.whatstrat.MIN_VOLUME_TO_SELL, 0));
+  return Math.max(0, safeNumber(activeOverrides(gb).MIN_VOLUME_TO_SELL, 0));
 }
 
 function availableBaseForBuys(gb, config) {
@@ -1139,17 +1198,64 @@ function hasUsableBag(gb) {
   return quoteBalance > 0 && (minimumSellBaseValue === 0 || positionValueBase >= minimumSellBaseValue);
 }
 
+function normalizeRecoveredEntryTime(rawValue) {
+  var whenBought = safeNumber(rawValue, 0);
+  if (whenBought > 1000000000 && whenBought < 1000000000000) {
+    return Math.round(whenBought * 1000);
+  }
+  if (whenBought >= 1000000000000) {
+    return Math.round(whenBought);
+  }
+  return 0;
+}
+
+function latestOrderTimestamp(gb, type) {
+  var orders = gb && gb.data && Array.isArray(gb.data.orders) ? gb.data.orders : [];
+  var pairName = gb && gb.data ? safeString(gb.data.pairName, '') : '';
+  var latest = 0;
+  var i;
+  var order;
+  var orderTime;
+
+  for (i = 0; i < orders.length; i += 1) {
+    order = orders[i];
+    if (!order || safeString(order.pair, '') !== pairName || safeString(order.type, '').toLowerCase() !== type) {
+      continue;
+    }
+    orderTime = safeNumber(order.time, 0);
+    if (orderTime > latest) {
+      latest = orderTime;
+    }
+  }
+
+  return latest;
+}
+
+function recoveredBagEntryTime(gb) {
+  var latestBuy = latestOrderTimestamp(gb, 'buy');
+  var latestSell = latestOrderTimestamp(gb, 'sell');
+  var whenBought = normalizeRecoveredEntryTime(gb && gb.data && gb.data.pairLedger ? gb.data.pairLedger.whenwebought : 0);
+
+  if (latestBuy > 0 && latestBuy >= latestSell) {
+    return latestBuy;
+  }
+  if (whenBought > 0 && whenBought >= latestSell) {
+    return whenBought;
+  }
+  return latestBuy > 0 ? latestBuy : whenBought;
+}
+
 function updateBagRecovery(gb, state, hasBag) {
-  var whenBought = safeNumber(gb.data.pairLedger.whenwebought, 0);
+  var recoveredEntryTime = recoveredBagEntryTime(gb);
   if (hasBag) {
     if (state.entryTime <= 0) {
-      if (whenBought > 1000000000 && whenBought < 1000000000000) {
-        state.entryTime = Math.round(whenBought * 1000);
-      } else if (whenBought >= 1000000000000) {
-        state.entryTime = Math.round(whenBought);
+      if (recoveredEntryTime > 0) {
+        state.entryTime = recoveredEntryTime;
       } else {
         state.entryTime = Date.now();
       }
+    } else if (state.phase === 'entry-pending' && recoveredEntryTime > state.entryTime) {
+      state.entryTime = recoveredEntryTime;
     }
     if (state.phase === 'flat' || state.phase === 'cooldown') {
       state.phase = state.tp1Done ? 'runner' : 'bag';
@@ -1380,19 +1486,89 @@ function clearChartObjects(gb) {
   gb.data.pairLedger.customBuyTarget = null;
   gb.data.pairLedger.customSellTarget = null;
   gb.data.pairLedger.customStopTarget = null;
+  gb.data.pairLedger.customCloseTarget = null;
   gb.data.pairLedger.customTrailingTarget = null;
   gb.data.pairLedger.customDcaTarget = null;
   gb.data.pairLedger.customChartTargets = [];
   gb.data.pairLedger.customChartShapes = [];
 }
 
+function createChartTarget(text, price, quantity, lineStyle, lineWidth, lineColor, bodyTextColor) {
+  if (!isFinite(price) || price <= 0) {
+    return null;
+  }
+  return {
+    text: text,
+    price: price,
+    quantity: quantity || '',
+    lineStyle: lineStyle,
+    lineLength: 15,
+    lineWidth: lineWidth,
+    extendLeft: false,
+    bodyBackgroundColor: lineColor,
+    bodyTextColor: bodyTextColor,
+    bodyBorderColor: 'rgba(0,0,0,0)',
+    quantityBackgroundColor: lineColor,
+    quantityTextColor: bodyTextColor,
+    quantityBorderColor: 'rgba(0,0,0,0)',
+    lineColor: lineColor
+  };
+}
+
+function buildRectangleShape(startTime, endTime, topPrice, bottomPrice, fillColor, borderColor) {
+  if (!startTime || !endTime || !isFinite(topPrice) || !isFinite(bottomPrice)) {
+    return null;
+  }
+  if (topPrice <= 0 || bottomPrice <= 0 || topPrice <= bottomPrice) {
+    return null;
+  }
+  return {
+    points: [
+      { time: startTime, price: topPrice },
+      { time: endTime, price: bottomPrice }
+    ],
+    options: {
+      shape: 'rectangle',
+      lock: true,
+      disableSelection: true,
+      disableSave: true,
+      disableUndo: true,
+      showInObjectsTree: false,
+      setInBackground: true,
+      overrides: {
+        backgroundColor: fillColor,
+        color: borderColor,
+        textColor: borderColor,
+        fillBackground: true
+      }
+    }
+  };
+}
+
+function buildShapeWindow(frameMetrics, candlesBack, candlesForward) {
+  var lastTime = normalizeTimestampToSeconds(frameMetrics.lastTimestamp);
+  var periodSeconds = Math.max(60, Math.floor(safeNumber(frameMetrics.currentPeriodMinutes, 1) * 60));
+
+  if (!lastTime) {
+    lastTime = Math.floor(Date.now() / 1000);
+  }
+
+  return {
+    startTime: lastTime - (periodSeconds * Math.max(1, candlesBack || 1)),
+    endTime: lastTime + (periodSeconds * Math.max(1, candlesForward || 1))
+  };
+}
+
 function setChartObjects(gb, config, state, frameMetrics, hasBag, stage) {
   var ledger = gb.data.pairLedger;
   var targets = [];
   var shapes = [];
-  var now = Date.now();
+  var entryPrice = Math.max(safeNumber(gb.data.breakEven, 0), safeNumber(state.lastFillPrice, 0));
   var zoneTop = frameMetrics.fast * (1 + (config.pullback.zoneBufferPct / 100));
   var zoneBottom = frameMetrics.fast * (1 - (config.pullback.zoneBufferPct / 100));
+  var riskTop = Math.max(frameMetrics.entryTarget, entryPrice, frameMetrics.bid);
+  var window = buildShapeWindow(frameMetrics, 3, 2);
+  var target;
 
   if (!config.visuals.enableCharts) {
     clearChartObjects(gb);
@@ -1400,44 +1576,57 @@ function setChartObjects(gb, config, state, frameMetrics, hasBag, stage) {
   }
 
   ledger.customBuyTarget = hasBag ? null : frameMetrics.entryTarget;
-  ledger.customSellTarget = hasBag ? frameMetrics.tp1Price : frameMetrics.tp1Price;
+  ledger.customSellTarget = frameMetrics.tp1Price;
   ledger.customStopTarget = frameMetrics.stopPrice;
+  ledger.customCloseTarget = hasBag && state.tp1Done && state.trailStop > 0 ? state.trailStop : null;
   ledger.customTrailingTarget = state.tp1Done ? state.trailStop : null;
   ledger.customDcaTarget = hasBag && config.reload.maxCount > 0 ? frameMetrics.reloadTarget : null;
 
-  targets.push(['Kestrel Fast EMA', frameMetrics.fast, KESTREL_COLORS.info]);
-  targets.push(['Kestrel Slow EMA', frameMetrics.slow, KESTREL_COLORS.neutral]);
-  targets.push([hasBag ? 'Kestrel TP1' : 'Kestrel Buy', hasBag ? frameMetrics.tp1Price : frameMetrics.entryTarget, hasBag ? KESTREL_COLORS.good : KESTREL_COLORS.warn]);
-  targets.push(['Kestrel Stop', frameMetrics.stopPrice, KESTREL_COLORS.bad]);
+  target = createChartTarget('Kestrel Fast EMA', frameMetrics.fast, '', 1, 1, KESTREL_COLORS.info, '#0f1a2b');
+  if (target) {
+    targets.push(target);
+  }
+  target = createChartTarget('Kestrel Slow EMA', frameMetrics.slow, '', 1, 1, KESTREL_COLORS.neutral, '#111827');
+  if (target) {
+    targets.push(target);
+  }
+  if (hasBag && entryPrice > 0) {
+    target = createChartTarget('Kestrel Entry Fill', entryPrice, '', 1, 1, KESTREL_COLORS.neutral, '#111827');
+    if (target) {
+      targets.push(target);
+    }
+  }
+  target = createChartTarget(hasBag ? 'Kestrel TP1' : 'Kestrel Buy Watch', hasBag ? frameMetrics.tp1Price : frameMetrics.entryTarget, '', 0, 2, hasBag ? KESTREL_COLORS.good : KESTREL_COLORS.warn, '#122018');
+  if (target) {
+    targets.push(target);
+  }
+  target = createChartTarget('Kestrel Stop', frameMetrics.stopPrice, '', 2, 1, KESTREL_COLORS.bad, '#2b1111');
+  if (target) {
+    targets.push(target);
+  }
   if (state.tp1Done && state.trailStop > 0) {
-    targets.push(['Kestrel Trail', state.trailStop, KESTREL_COLORS.good]);
+    target = createChartTarget('Kestrel Trail', state.trailStop, '', 0, 2, KESTREL_COLORS.good, '#122018');
+    if (target) {
+      targets.push(target);
+    }
   }
   if (hasBag && config.reload.maxCount > 0) {
-    targets.push(['Kestrel Reload', frameMetrics.reloadTarget, KESTREL_COLORS.warn]);
+    target = createChartTarget('Kestrel Reload', frameMetrics.reloadTarget, '', 1, 1, KESTREL_COLORS.warn, '#2b2110');
+    if (target) {
+      targets.push(target);
+    }
   }
   ledger.customChartTargets = targets;
 
   if (config.visuals.enableShapes) {
-    shapes.push({
-      type: 'rect',
-      id: 'kestrel-zone',
-      from: now - (frameMetrics.currentPeriodMinutes * 60 * 1000 * 3),
-      to: now + (frameMetrics.currentPeriodMinutes * 60 * 1000 * 2),
-      y1: zoneTop,
-      y2: zoneBottom,
-      borderColor: KESTREL_COLORS.zoneBorder,
-      color: KESTREL_COLORS.zoneFill
-    });
-    shapes.push({
-      type: 'rect',
-      id: 'kestrel-risk',
-      from: now - (frameMetrics.currentPeriodMinutes * 60 * 1000 * 3),
-      to: now + (frameMetrics.currentPeriodMinutes * 60 * 1000 * 2),
-      y1: frameMetrics.entryTarget,
-      y2: frameMetrics.stopPrice,
-      borderColor: KESTREL_COLORS.stopBorder,
-      color: KESTREL_COLORS.stopFill
-    });
+    target = buildRectangleShape(window.startTime, window.endTime, zoneTop, zoneBottom, KESTREL_COLORS.zoneFill, KESTREL_COLORS.zoneBorder);
+    if (target) {
+      shapes.push(target);
+    }
+    target = buildRectangleShape(window.startTime, window.endTime, riskTop, frameMetrics.stopPrice, KESTREL_COLORS.stopFill, KESTREL_COLORS.stopBorder);
+    if (target) {
+      shapes.push(target);
+    }
     ledger.customChartShapes = shapes;
   } else {
     ledger.customChartShapes = [];
@@ -1594,6 +1783,10 @@ async function runKestrelStrategy(gb) {
   availableBase = availableBaseForBuys(gb, config);
   enoughEntryBalance = availableBase >= config.capital.tradeLimitBase;
   updateBagRecovery(gb, state, hasBag);
+  runtime.postEntryGraceActive = hasBag &&
+    safeNumber(state.lastActionAt, 0) > 0 &&
+    (state.lastActionLabel === 'entry' || state.lastActionLabel === 'reload') &&
+    ((runtime.now - safeNumber(state.lastActionAt, 0)) < (config.exits.postEntryGraceSeconds * 1000));
 
   if (!config.enabled) {
     clearChartObjects(gb);
@@ -1718,13 +1911,13 @@ async function runKestrelStrategy(gb) {
         sendNotification(gb, config, state, 'stop-exit-' + String(Date.now()), createNotification('Kestrel stop exit on ' + gb.data.pairName + '.', 'warning', false));
         clearBagState(state, config);
       }
-    } else if (frameMetrics.rsi <= config.exits.momentumExitRsi || frameMetrics.fast < frameMetrics.slow) {
+    } else if (!runtime.postEntryGraceActive && (frameMetrics.rsi <= config.exits.momentumExitRsi || frameMetrics.fast < frameMetrics.slow)) {
       sellAmount = normalizedSellAmount(gb, safeNumber(gb.data.quoteBalance, 0), true);
       if (sellAmount > 0 && await executeSell(gb, state, sellAmount, 'momentum-exit', frameMetrics)) {
         sendNotification(gb, config, state, 'momentum-exit-' + String(Date.now()), createNotification('Kestrel momentum exit on ' + gb.data.pairName + '.', 'warning', false));
         clearBagState(state, config);
       }
-    } else if (!state.tp1Done && ageMinutes >= config.exits.timeStopMinutes && pnlPct <= config.exits.timeStopMaxProfitPct) {
+    } else if (!runtime.postEntryGraceActive && !state.tp1Done && ageMinutes >= config.exits.timeStopMinutes && pnlPct <= config.exits.timeStopMaxProfitPct) {
       sellAmount = normalizedSellAmount(gb, safeNumber(gb.data.quoteBalance, 0), true);
       if (sellAmount > 0 && await executeSell(gb, state, sellAmount, 'time-stop', frameMetrics)) {
         sendNotification(gb, config, state, 'time-stop-' + String(Date.now()), createNotification('Kestrel time stop exit on ' + gb.data.pairName + '.', 'warning', false));

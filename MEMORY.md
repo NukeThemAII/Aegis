@@ -534,3 +534,105 @@
 
 - Latest full edit backup before the Mako creation and XRP reassignment round:
   - `/home/xaos/gunbot/backups/aegis-20260328-074522`
+
+## Kestrel Runtime Bug Learned On 2026-03-28
+
+- Gunbot `whenwebought` can stay stale from a prior day or prior bag even when the current live bag is brand new.
+- This was directly observed on:
+  - `USDT-SOL`
+    - stale `whenwebought`: `2026-03-27T19:08:09.886Z`
+    - fresh buy-sell cycles were being force-closed about 6 seconds after entry
+  - `USDT-BNB`
+    - stale `whenwebought`: `2026-03-27T19:02:53.051Z`
+    - same immediate loss pattern
+- Do not trust `whenwebought` as the sole source of bag age for fast strategies.
+- Kestrel `1.1.2` now prefers live order-history recovery for active bag entry time and adds a post-entry grace window before momentum/time-stop exits can fire.
+- If similar behavior appears in future strategies, inspect:
+  - latest local buy order timestamp
+  - latest local sell order timestamp
+  - stale `whenwebought`
+  - sub-10-second sell patterns in `gunbot_logs.txt`
+
+## Latest Backup
+
+- Latest bug-fix backup before the Kestrel stale-age fix:
+  - `/home/xaos/gunbot/backups/aegis-20260328-094205-kestrel-fix`
+
+## Gunbot Chart Visuals Rule Learned On 2026-03-28
+
+- Official Gunbot chart visuals are safest when they use the documented schema exactly:
+  - `customChartTargets`
+    - array of objects with fields like `text`, `price`, `lineStyle`, `lineLength`, `lineWidth`, `lineColor`, and body/quantity colors
+  - `customChartShapes`
+    - array of objects using `points` plus `options`
+    - rectangles should use TradingView-style `shape: 'rectangle'`
+  - `sidebarExtras`
+    - existing array-of-objects pattern is valid
+- Do not use local shorthand payloads for chart visuals in runtime strategies:
+  - no `['Label', price, color]` targets
+  - no custom `{type:'rect', ...}` shape shorthands
+- Current safe visual contract across strategies:
+  - `Aegis.js`
+    - `1.3.3`
+    - adds explicit average fill and runner close targets
+  - `Kestrel.js`
+    - `1.1.4`
+    - converted to documented target and shape objects
+  - `Mako.js`
+    - `1.0.3`
+    - converted to documented target and shape objects
+    - now also emits time-scale trade markers on executed buys and sells
+- If chart visuals disappear again, inspect in this order:
+  1. live `whatstrat.STRAT_FILENAME`
+  2. strategy version lines in `gunbot_logs.txt`
+  3. live pair state for `customChartTargets`, `customChartShapes`, and `customCloseTarget`
+  4. whether the runtime payload still matches the official doc schema
+
+## Latest Backup
+
+- Latest chart-compatibility logging backup:
+  - `/home/xaos/gunbot/backups/aegis-20260328-101616-chart-doc-log`
+- Latest Mako trade-marker parity backup:
+  - `/home/xaos/gunbot/backups/aegis-20260328-102104-mako-marks`
+
+## Runtime Snapshot Rule Learned On 2026-03-28
+
+- Gunbot custom strategy runtime objects can behave like a shared mutable async context across pairs.
+- Directly holding the live resolved `gb` object across awaited operations is unsafe.
+- This was directly observed in production simulator logs:
+  - `Aegis.js` executed a stale sell on `USDT-PENDLE` even though `config.js` still assigned `Kestrel.js`
+  - `Kestrel.js` emitted state lines on `USDT-PAXG` even though `config.js` assigned `Aegis.js`
+- Current safe rule:
+  - every strategy must snapshot runtime data at cycle start
+  - snapshot at minimum:
+    - `pairName`
+    - `exchangeName`
+    - `whatstrat`
+    - current top-level data fields
+    - current pair ledger reference
+  - then execute all cycle logic against that snapshot, not against the live mutable runtime object
+- Safe versions after this fix:
+  - `Aegis.js`
+    - `1.3.4`
+  - `Kestrel.js`
+    - `1.1.5`
+  - `Mako.js`
+    - `1.0.4`
+
+## Aegis Bag Recovery Rule Learned On 2026-03-28
+
+- `Aegis.js` originally trusted `pairLedger.whenwebought` too much.
+- This caused a fresh `USDT-PAXG` bag to be recovered and then stale-sold almost immediately:
+  - buy at `4504.49`
+  - sell at `4504.48`
+  - realized about `-0.2001 USDT`
+- Current safe rule:
+  - recover active bag entry time from latest local pair buy order first
+  - compare against latest local sell order
+  - only fall back to `whenwebought` when local order history does not provide a newer valid answer
+- Similar rule already existed in Kestrel after the SOL/BNB stale-age incident and should be considered mandatory for future strategies too.
+
+## Latest Backup
+
+- Latest runtime-snapshot hardening backup:
+  - `/home/xaos/gunbot/backups/aegis-20260328-103117-runtime-snapshot`
