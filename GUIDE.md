@@ -2,7 +2,7 @@
 
 This guide explains how to configure `Aegis.js` in Gunbot.
 
-It is intentionally focused on what the runtime actually reads today in version `1.1.1`.
+It is intentionally focused on what the runtime actually reads today in version `1.3.1`.
 
 Use this document for:
 - pair setup
@@ -12,6 +12,15 @@ Use this document for:
 - log mode selection
 
 Use `README.md` for the higher-level strategy overview.
+
+## Current Simulator Matrix
+
+The current development rollout is intentionally split by pair:
+- `USDT-BTC`: `conservative` Aegis control pair on `15m`
+- `USDT-ETH`: `aggressive` Aegis conversion test on `15m`
+- `USDT-PAXG`: `balanced` Aegis reclaim test on `15m` with looser pair-level reclaim and liquidity thresholds
+
+This is deliberate. It keeps one defensive control pair while still forcing Aegis to prove that balanced and aggressive profiles can arm and convert setups in simulator mode.
 
 ## Scope
 
@@ -54,16 +63,19 @@ For pairs like `USDT-BTC` or `USDT-PAXG`, Aegis treats:
 - `baseBalance` as the funding currency balance
 - `quoteBalance` as the asset balance
 - `AEGIS_TRADE_LIMIT` as funding-currency budget per entry
+- `TRADING_LIMIT` as optional pair-level headroom when you want more total room for DCA or simulator stress tests
 - `MIN_VOLUME_TO_BUY` and `MIN_VOLUME_TO_SELL` as minimum order notional in the funding currency
 
 In plain terms on `USDT-*` pairs:
 - if `AEGIS_TRADE_LIMIT` is `100`, Aegis tries to deploy about `100 USDT` per new entry
 - it converts that funding budget into asset quantity internally before calling `buyMarket(...)`
-- if `MIN_VOLUME_TO_BUY` is `10`, Aegis will skip buys smaller than about `10 USDT` notional
-- if `MIN_VOLUME_TO_SELL` is `10`, Aegis will skip sells smaller than about `10 USDT` notional unless selling the full bag clears the threshold
+- if `TRADING_LIMIT` is `400` while `AEGIS_TRADE_LIMIT` is `100`, Aegis still buys about `100 USDT` per entry, but the pair config keeps enough total room for multiple adds in simulator mode
+- if `MIN_VOLUME_TO_BUY` is `15`, Aegis will skip buys smaller than about `15 USDT` notional
+- if `MIN_VOLUME_TO_SELL` is `15`, Aegis will skip sells smaller than about `15 USDT` notional unless selling the full bag clears the threshold
 
 Operational meaning:
 - `AEGIS_TRADE_LIMIT` controls how much capital Aegis wants to use
+- `TRADING_LIMIT` can be left above `AEGIS_TRADE_LIMIT` when you want extra pair-level room for DCA or simulator stress testing
 - `MIN_VOLUME_TO_BUY` and `MIN_VOLUME_TO_SELL` are exchange-style minimum notional guards
 - they are not the same thing
 
@@ -240,6 +252,7 @@ Below are the settings that Aegis currently reads from `gb.data.pairLedger.whats
 | `RECLAIM_WICK_RATIO` | `0.35` | Minimum lower-wick quality for wick-based confirmation. |
 | `RECLAIM_CLOSE_LOCATION` | `0.58` | Minimum candle close location within the signal range. |
 | `RECLAIM_REQUIRE_BULLISH_CLOSE` | `true` | Require bullish candle body for confirmation. |
+| `RECLAIM_ALLOW_TWO_BAR` | `true` | Allows a wick rejection candle plus follow-through candle to qualify as a reclaim. |
 
 ### 5. Momentum
 
@@ -256,9 +269,11 @@ Below are the settings that Aegis currently reads from `gb.data.pairLedger.whats
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `MAX_SPREAD_PCT` | `0.12` | Maximum spread percentage allowed. |
-| `MIN_RELATIVE_VOLUME` | profile driven | Minimum last-volume / average-volume ratio. |
+| `MIN_RELATIVE_VOLUME` | profile driven | Minimum projected-current-volume / average-completed-volume ratio. |
 | `VOLUME_LOOKBACK` | `20` | Lookback for average-volume calculation. |
 | `MAX_SIGNAL_RANGE_PCT` | profile driven | Maximum signal candle range percentage allowed. |
+| `PROJECT_CURRENT_VOLUME` | `true` | If true, Aegis projects current-candle volume based on candle progress before comparing it with completed candles. |
+| `PROJECTED_VOLUME_FLOOR` | `0.30` | Minimum candle-progress ratio used in the projection model. |
 
 ### 7. Risk / Entry
 
@@ -358,14 +373,17 @@ Purpose:
 ### PAXG / defensive validation
 
 Recommended start:
-- `AEGIS_RISK_PROFILE=conservative`
+- `AEGIS_RISK_PROFILE=balanced`
 - `AEGIS_LOG_MODE=cycle`
 - `PERIOD=15`
 
 Current live tuning that has been tested operationally:
-- `MIN_RELATIVE_VOLUME=0.5`
-- `RECLAIM_CLOSE_LOCATION=0.55`
-- `MOMENTUM_MIN_RSI_DELTA=0.2`
+- `MIN_RELATIVE_VOLUME=0.25`
+- `RECLAIM_WICK_RATIO=0.22`
+- `RECLAIM_CLOSE_LOCATION=0.5`
+- `MOMENTUM_MIN_RSI_DELTA=0.1`
+- `VALUE_MIN_PULLBACK_PCT=0.2`
+- `MIN_ENTRY_SCORE=4`
 
 ### Wider live observation fleet
 
@@ -389,9 +407,9 @@ Use this when:
     "BUY_METHOD": "custom",
     "SELL_METHOD": "custom",
     "IS_MARGIN_STRAT": false,
-    "MIN_VOLUME_TO_BUY": 10,
-    "MIN_VOLUME_TO_SELL": 10,
-    "TRADING_LIMIT": 100,
+    "MIN_VOLUME_TO_BUY": 15,
+    "MIN_VOLUME_TO_SELL": 15,
+    "TRADING_LIMIT": 400,
     "AEGIS_TRADE_LIMIT": 100,
     "AEGIS_RISK_PROFILE": "conservative",
     "AEGIS_LOG_MODE": "changes",

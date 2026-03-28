@@ -1,7 +1,7 @@
 /*
  * Aegis Regime Reclaim
- * Version: 1.1.1
- * Updated: 2026-03-27
+ * Version: 1.3.1
+ * Updated: 2026-03-28
  *
  * Premium single-file Gunbot custom strategy.
  * Spot only. Long only.
@@ -9,8 +9,8 @@
 
 var AEGIS_META = {
   name: 'Aegis Regime Reclaim',
-  version: '1.1.1',
-  updated: '2026-03-27'
+  version: '1.3.1',
+  updated: '2026-03-28'
 };
 
 var AEGIS_COLORS = {
@@ -57,7 +57,8 @@ var AEGIS_BASE_CONFIG = {
   confirm: {
     wickRatio: 0.35,
     closeLocation: 0.58,
-    requireBullishClose: true
+    requireBullishClose: true,
+    allowTwoBar: true
   },
   momentum: {
     rsiLength: 14,
@@ -69,7 +70,9 @@ var AEGIS_BASE_CONFIG = {
     maxSpreadPct: 0.12,
     minRelativeVolume: 0.65,
     volumeLookback: 20,
-    maxSignalRangePct: 3.2
+    maxSignalRangePct: 3.2,
+    projectCurrentVolume: true,
+    projectedVolumeFloor: 0.30
   },
   risk: {
     minEntryScore: 5,
@@ -294,10 +297,60 @@ function lowestFromEnd(values, lookback) {
 }
 
 function percentChange(fromValue, toValue) {
-  if (!fromValue) {
+  if (!isFinite(fromValue) || !isFinite(toValue) || Math.abs(fromValue) < 1e-10) {
     return 0;
   }
   return ((toValue - fromValue) / fromValue) * 100;
+}
+
+function normalizeTimestampToMillis(value) {
+  var numeric = safeNumber(value, 0);
+  if (numeric > 1000000000000) {
+    return Math.round(numeric);
+  }
+  if (numeric > 1000000000) {
+    return Math.round(numeric * 1000);
+  }
+  return 0;
+}
+
+function candleProgressRatio(lastTimestamp, periodMinutes, nowTimestamp, floor) {
+  var openedAt = normalizeTimestampToMillis(lastTimestamp);
+  var periodMs = Math.max(1, safeNumber(periodMinutes, 0)) * 60 * 1000;
+  var elapsed;
+
+  if (!openedAt || !periodMs) {
+    return 1;
+  }
+
+  elapsed = safeNumber(nowTimestamp, 0) - openedAt;
+  if (elapsed <= 0) {
+    return floor;
+  }
+
+  return clamp(elapsed / periodMs, floor, 1);
+}
+
+function projectSignalVolume(signalVolume, lastTimestamp, periodMinutes, nowTimestamp, config) {
+  var volume = Math.max(0, safeNumber(signalVolume, 0));
+  var progressRatio;
+
+  if (!config.liquidity.projectCurrentVolume) {
+    return volume;
+  }
+
+  progressRatio = candleProgressRatio(
+    lastTimestamp,
+    periodMinutes,
+    nowTimestamp,
+    config.liquidity.projectedVolumeFloor
+  );
+
+  if (progressRatio >= 1) {
+    return volume;
+  }
+
+  return volume / progressRatio;
 }
 
 function buildConfig(gb) {
@@ -354,6 +407,11 @@ function buildConfig(gb) {
     ['RECLAIM_REQUIRE_BULLISH_CLOSE'],
     config.confirm.requireBullishClose
   );
+  config.confirm.allowTwoBar = readFirstBoolean(
+    overrides,
+    ['RECLAIM_ALLOW_TWO_BAR'],
+    config.confirm.allowTwoBar
+  );
 
   config.momentum.rsiLength = readFirstNumber(overrides, ['MOMENTUM_RSI_LENGTH', 'RSI_LENGTH'], config.momentum.rsiLength);
   config.momentum.rsiFloor = readFirstNumber(overrides, ['MOMENTUM_RSI_FLOOR'], config.momentum.rsiFloor);
@@ -364,6 +422,16 @@ function buildConfig(gb) {
   config.liquidity.minRelativeVolume = readFirstNumber(overrides, ['MIN_RELATIVE_VOLUME'], config.liquidity.minRelativeVolume);
   config.liquidity.volumeLookback = readFirstNumber(overrides, ['VOLUME_LOOKBACK'], config.liquidity.volumeLookback);
   config.liquidity.maxSignalRangePct = readFirstNumber(overrides, ['MAX_SIGNAL_RANGE_PCT'], config.liquidity.maxSignalRangePct);
+  config.liquidity.projectCurrentVolume = readFirstBoolean(
+    overrides,
+    ['PROJECT_CURRENT_VOLUME'],
+    config.liquidity.projectCurrentVolume
+  );
+  config.liquidity.projectedVolumeFloor = readFirstNumber(
+    overrides,
+    ['PROJECTED_VOLUME_FLOOR'],
+    config.liquidity.projectedVolumeFloor
+  );
 
   config.risk.minEntryScore = readFirstNumber(overrides, ['MIN_ENTRY_SCORE'], config.risk.minEntryScore);
   config.risk.useBuyEnabled = readFirstBoolean(overrides, ['AEGIS_USE_BUY_ENABLED'], config.risk.useBuyEnabled);
@@ -434,6 +502,7 @@ function buildConfig(gb) {
   config.confirm.closeLocation = clamp(config.confirm.closeLocation, 0.10, 0.95);
   config.momentum.rsiLength = Math.max(2, config.momentum.rsiLength);
   config.liquidity.volumeLookback = Math.max(3, config.liquidity.volumeLookback);
+  config.liquidity.projectedVolumeFloor = clamp(config.liquidity.projectedVolumeFloor, 0.10, 1.0);
   config.risk.minEntryScore = clamp(config.risk.minEntryScore, 1, 5);
   config.dca.maxCount = Math.max(0, Math.floor(config.dca.maxCount));
   config.dca.sizeMultiplier = clamp(config.dca.sizeMultiplier, 0.25, 3.0);
@@ -453,6 +522,14 @@ function resolveGb(runtimeGb) {
     return global.gb;
   }
   throw new Error('Aegis could not resolve the Gunbot runtime object.');
+}
+
+function isExpectedStrategyFile(gb, expectedName) {
+  var actual = gb && gb.data && gb.data.pairLedger && gb.data.pairLedger.whatstrat
+    ? safeString(gb.data.pairLedger.whatstrat.STRAT_FILENAME, '')
+    : '';
+
+  return actual.toLowerCase() === String(expectedName || '').toLowerCase();
 }
 
 function ensureState(gb) {
@@ -719,15 +796,24 @@ function calculateEMA(values, period) {
   var i;
   var multiplier;
   var previous;
-  if (!values || values.length === 0) {
+  var seedTotal = 0;
+
+  if (!values || values.length < period) {
     return result;
   }
+
+  result.length = values.length;
+  for (i = 0; i < (period - 1); i += 1) {
+    seedTotal += values[i];
+    result[i] = NaN;
+  }
+  seedTotal += values[period - 1];
+  previous = seedTotal / period;
+  result[period - 1] = previous;
   multiplier = 2 / (period + 1);
-  previous = values[0];
-  result.push(previous);
-  for (i = 1; i < values.length; i += 1) {
+  for (i = period; i < values.length; i += 1) {
     previous = ((values[i] - previous) * multiplier) + previous;
-    result.push(previous);
+    result[i] = previous;
   }
   return result;
 }
@@ -1039,10 +1125,17 @@ function analyzeCurrentFrame(gb, config, state, hasBag) {
   var signalLow;
   var signalClose;
   var signalVolume;
+  var completedSignalVolume;
+  var effectiveSignalVolume;
   var previousClose;
+  var previousOpen;
+  var previousHigh;
+  var previousLow;
   var range;
   var wickRatio;
   var closeLocation;
+  var previousRange;
+  var previousWickRatio;
   var pullbackHigh;
   var pullbackPct;
   var bandTop;
@@ -1055,12 +1148,16 @@ function analyzeCurrentFrame(gb, config, state, hasBag) {
   var valueReason;
   var reclaimFast;
   var bullishClose;
+  var singleBarReclaim;
+  var twoBarReclaim;
   var reclaimOk;
   var confirmReason;
   var rsiDelta;
   var momentumOk;
   var momentumReason;
   var avgVolume;
+  var projectedSignalVolume;
+  var volumeProgressRatio;
   var relativeVolume;
   var spreadPct;
   var signalRangePct;
@@ -1115,11 +1212,17 @@ function analyzeCurrentFrame(gb, config, state, hasBag) {
   signalLow = low[lastIndex];
   signalClose = close[lastIndex];
   signalVolume = volume[lastIndex];
+  completedSignalVolume = volume[previousIndex];
   previousClose = close[previousIndex];
+  previousOpen = open[previousIndex];
+  previousHigh = high[previousIndex];
+  previousLow = low[previousIndex];
   range = Math.max(0, signalHigh - signalLow);
   wickRatio = range > 0 ? (Math.min(signalOpen, signalClose) - signalLow) / range : 0;
   closeLocation = range > 0 ? (signalClose - signalLow) / range : 0.5;
-  pullbackHigh = highestFromEnd(high, config.value.impulseLookback);
+  previousRange = Math.max(0, previousHigh - previousLow);
+  previousWickRatio = previousRange > 0 ? (Math.min(previousOpen, previousClose) - previousLow) / previousRange : 0;
+  pullbackHigh = (highestFromEnd(high, config.value.impulseLookback) + highestFromEnd(close, config.value.impulseLookback)) / 2;
   pullbackPct = pullbackHigh > 0 ? ((pullbackHigh - bid) / pullbackHigh) * 100 : 0;
   bandTop = Math.max(fastLast, slowLast) * (1 + (config.value.bandBufferPct / 100));
   bandBottom = Math.min(fastLast, slowLast) * (1 - (config.value.bandBufferPct / 100));
@@ -1133,13 +1236,23 @@ function analyzeCurrentFrame(gb, config, state, hasBag) {
   valueReason = valueOk ? 'value-ok' : buildValueReason(valueBias, touchedBand, pullbackPct, config);
   reclaimFast = signalClose > fastLast && bid > fastLast;
   bullishClose = signalClose > signalOpen;
-  reclaimOk = reclaimFast &&
+  singleBarReclaim = reclaimFast &&
     closeLocation >= config.confirm.closeLocation &&
     wickRatio >= config.confirm.wickRatio &&
     (!config.confirm.requireBullishClose || bullishClose) &&
     signalClose > previousClose;
+  twoBarReclaim = !!(
+    config.confirm.allowTwoBar &&
+    previousIndex < lastIndex &&
+    previousWickRatio >= config.confirm.wickRatio &&
+    reclaimFast &&
+    bullishClose &&
+    signalClose > previousClose &&
+    signalClose >= previousHigh
+  );
+  reclaimOk = singleBarReclaim || twoBarReclaim;
   confirmReason = reclaimOk
-    ? 'reclaim-ok'
+    ? (twoBarReclaim && !singleBarReclaim ? 'reclaim-two-bar' : 'reclaim-ok')
     : buildConfirmReason(reclaimFast, closeLocation, wickRatio, bullishClose, signalClose, previousClose, config);
   rsiDelta = (rsiLast !== null && rsiPrev !== null) ? (rsiLast - rsiPrev) : 0;
   momentumOk = rsiLast !== null &&
@@ -1147,8 +1260,22 @@ function analyzeCurrentFrame(gb, config, state, hasBag) {
     rsiLast <= config.momentum.rsiCeiling &&
     rsiDelta >= config.momentum.minRsiDelta;
   momentumReason = momentumOk ? 'momentum-ok' : buildMomentumReason(rsiLast, rsiDelta, config);
-  avgVolume = average(volume.slice(Math.max(0, volume.length - config.liquidity.volumeLookback)));
-  relativeVolume = avgVolume > 0 ? signalVolume / avgVolume : 1;
+  avgVolume = average(volume.slice(Math.max(0, volume.length - config.liquidity.volumeLookback - 1), volume.length - 1));
+  volumeProgressRatio = candleProgressRatio(
+    timestamps[lastIndex],
+    currentPeriodMinutes,
+    Date.now(),
+    config.liquidity.projectedVolumeFloor
+  );
+  projectedSignalVolume = projectSignalVolume(
+    signalVolume,
+    timestamps[lastIndex],
+    currentPeriodMinutes,
+    Date.now(),
+    config
+  );
+  effectiveSignalVolume = Math.max(projectedSignalVolume, Math.max(0, safeNumber(completedSignalVolume, 0)));
+  relativeVolume = avgVolume > 0 ? effectiveSignalVolume / avgVolume : 1;
   spreadPct = bid > 0 ? ((ask - bid) / bid) * 100 : 999;
   signalRangePct = bid > 0 ? (range / bid) * 100 : 0;
   liquidityOk = spreadPct <= config.liquidity.maxSpreadPct &&
@@ -1225,6 +1352,11 @@ function analyzeCurrentFrame(gb, config, state, hasBag) {
       ok: liquidityOk,
       spreadPct: spreadPct,
       avgVolume: avgVolume,
+      signalVolume: signalVolume,
+      completedSignalVolume: completedSignalVolume,
+      effectiveSignalVolume: effectiveSignalVolume,
+      projectedSignalVolume: projectedSignalVolume,
+      volumeProgressRatio: volumeProgressRatio,
       relativeVolume: relativeVolume,
       signalRangePct: signalRangePct,
       reason: liquidityReason
@@ -1367,7 +1499,7 @@ function maybeClearReset(state, config, regimeMetrics, frameMetrics, compositeSc
   if (!state.needsReset) {
     return;
   }
-  if (!regimeMetrics.pass || !frameMetrics.value.ok || compositeScore <= config.reentryResetScore) {
+  if (!regimeMetrics.pass || !frameMetrics.value.ok) {
     state.needsReset = false;
   }
 }
@@ -1513,7 +1645,8 @@ function emitChartMark(gb, message) {
 
 async function executeBuy(gb, config, state, amountQuote, label, compositeScore, frameMetrics) {
   var minimumBuyBaseValue = minBaseVolumeToBuy(gb);
-  var orderValueBase = quoteAmountToBaseValue(amountQuote, frameMetrics.bid);
+  var executionPrice = Math.max(safeNumber(frameMetrics.ask, 0), safeNumber(frameMetrics.bid, 0));
+  var orderValueBase = quoteAmountToBaseValue(amountQuote, executionPrice);
   var result;
 
   if (amountQuote <= 0) {
@@ -1530,9 +1663,12 @@ async function executeBuy(gb, config, state, amountQuote, label, compositeScore,
   }
 
   result = await gb.method.buyMarket(amountQuote, gb.data.pairName, gb.data.exchangeName);
+  if (!result) {
+    return false;
+  }
   state.lastActionAt = Date.now();
   state.lastActionLabel = label;
-  state.lastFillPrice = frameMetrics.bid;
+  state.lastFillPrice = executionPrice;
   state.lastEntryScore = compositeScore;
 
   if (label === 'entry') {
@@ -1552,12 +1688,12 @@ async function executeBuy(gb, config, state, amountQuote, label, compositeScore,
     gb,
     label,
     'Executed ' + label + ' market buy for ' + formatPrice(amountQuote) +
-    ' quote units at approx ' + formatPrice(frameMetrics.bid) +
+    ' quote units at approx ' + formatPrice(executionPrice) +
     ' with score ' + compositeScore + '/5'
   );
 
-  emitChartMark(gb, 'Aegis ' + label + ' @ ' + formatPrice(frameMetrics.bid));
-  return !!result;
+  emitChartMark(gb, 'Aegis ' + label + ' @ ' + formatPrice(executionPrice));
+  return true;
 }
 
 function normalizedSellAmount(gb, requestedAmount, forceFullIfNeeded) {
@@ -1588,6 +1724,9 @@ function normalizedSellAmount(gb, requestedAmount, forceFullIfNeeded) {
 
 async function executeSell(gb, state, amountQuote, label, frameMetrics) {
   var result = await gb.method.sellMarket(amountQuote, gb.data.pairName, gb.data.exchangeName);
+  if (!result) {
+    return false;
+  }
   state.lastActionAt = Date.now();
   state.lastActionLabel = label;
 
@@ -1607,7 +1746,7 @@ async function executeSell(gb, state, amountQuote, label, frameMetrics) {
   );
 
   emitChartMark(gb, 'Aegis ' + label + ' @ ' + formatPrice(frameMetrics.bid));
-  return !!result;
+  return true;
 }
 
 function clearBagState(state, config) {
@@ -1696,6 +1835,7 @@ function buildCycleSummaryLine(gb, config, regimeMetrics, frameMetrics, state, h
     summary.push('momentum=' + (frameMetrics.momentum.ok ? 'ok' : frameMetrics.momentum.reason));
     summary.push('liquidity=' + (frameMetrics.liquidity.ok ? 'ok' : frameMetrics.liquidity.reason));
     summary.push('spread=' + formatPercent(frameMetrics.liquidity.spreadPct));
+    summary.push('relvol=' + roundTo(frameMetrics.liquidity.relativeVolume, 2).toFixed(2) + 'x');
     summary.push('pullback=' + formatPercent(frameMetrics.value.pullbackPct));
     summary.push('rsi=' + roundTo(frameMetrics.rsi, 1).toFixed(1));
     summary.push('dca=' + String(state.dcaCount) + '/' + String(config.dca.maxCount));
@@ -2235,7 +2375,7 @@ async function runAegis(gb) {
   }
 
   if (!hasBag && !hasOpenOrders && skipReason === 'entry-ready') {
-    requestedBuyAmount = config.capital.tradeLimitBase / frameMetrics.bid;
+    requestedBuyAmount = config.capital.tradeLimitBase / Math.max(frameMetrics.ask, frameMetrics.bid);
       if (await executeBuy(gb, config, state, requestedBuyAmount, 'entry', compositeScore, frameMetrics)) {
         sendNotification(
           gb,
@@ -2251,7 +2391,7 @@ async function runAegis(gb) {
     }
   } else if (hasBag && !hasOpenOrders && buyEnabled && !runtime.actionCooldownActive && !runtime.reentryCooldownActive && !state.tp1Done) {
     pnlPct = breakEven > 0 ? percentChange(breakEven, frameMetrics.bid) : 0;
-    requestedDcaAmount = (config.capital.tradeLimitBase * config.dca.sizeMultiplier) / frameMetrics.bid;
+    requestedDcaAmount = (config.capital.tradeLimitBase * config.dca.sizeMultiplier) / Math.max(frameMetrics.ask, frameMetrics.bid);
     if (
       regimeMetrics.pass &&
       frameMetrics.liquidity.ok &&
@@ -2339,7 +2479,7 @@ async function runAegis(gb) {
           )
         );
       }
-    } else if (state.entryTime > 0 && staleAgeMinutes >= config.exits.staleMinutes && pnlPct <= config.exits.staleMaxProfitPct) {
+    } else if (!state.tp1Done && state.entryTime > 0 && staleAgeMinutes >= config.exits.staleMinutes && pnlPct <= config.exits.staleMaxProfitPct) {
       sellAmount = normalizedSellAmount(gb, safeNumber(gb.data.quoteBalance, 0), true);
       if (sellAmount > 0 && await executeSell(gb, state, sellAmount, 'stale', frameMetrics)) {
         clearBagState(state, config);
@@ -2397,6 +2537,10 @@ async function runAegis(gb) {
 
 async function aegisStrategy(runtimeGb) {
   var gb = resolveGb(runtimeGb);
+
+  if (!isExpectedStrategyFile(gb, 'Aegis.js')) {
+    return;
+  }
 
   try {
     await runAegis(gb);

@@ -20,6 +20,9 @@ Runtime design goal:
 Operator configuration reference:
 - [`GUIDE.md`](./GUIDE.md)
 
+Separate fast-strategy documentation:
+- [`KESTREL.md`](./KESTREL.md)
+
 ## What Aegis Is
 
 Aegis is a regime-filtered pullback and reclaim strategy.

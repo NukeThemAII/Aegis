@@ -1031,3 +1031,373 @@ Verified from official docs:
 2. Keep BTC unchanged as the regime-control pair.
 3. Treat the other live pairs as observation scope until they produce regime-on evidence.
 4. Publish the current docs and strategy files into the GitHub repo using a clone-first workflow.
+
+### 2026-03-28 simulator matrix expansion and ops hardening
+
+- Created backup set before the new round of edits:
+  - `/home/xaos/gunbot/backups/aegis-20260328-065709`
+- Verified `AEGIS_TRADE_LIMIT=100` was already set on every active Aegis pair in `config.js`.
+- Expanded the simulator matrix in `/home/xaos/gunbot/config.js`:
+  - all Aegis pairs now run `AEGIS_LOG_MODE=cycle` for development visibility
+  - `USDT-PAXG` moved from `conservative` to `balanced`
+  - `USDT-PAXG` received pair-specific test overrides:
+    - `MIN_RELATIVE_VOLUME=0.25`
+    - `RECLAIM_WICK_RATIO=0.22`
+    - `RECLAIM_CLOSE_LOCATION=0.5`
+    - `MOMENTUM_MIN_RSI_DELTA=0.1`
+    - `VALUE_MIN_PULLBACK_PCT=0.2`
+    - `MIN_ENTRY_SCORE=4`
+  - `USDT-PENDLE` and `USDT-SOL` remain aggressive test pairs and now use:
+    - `REGIME_HTF_PERIOD=30`
+  - `USDT-XRP` is now the dedicated Kestrel pair:
+    - `STRAT_FILENAME=Kestrel.js`
+    - `PERIOD=5`
+    - aggressive Kestrel-specific overrides enabled
+
+### 2026-03-28 Aegis 1.2.0 runtime update
+
+- Updated `Aegis.js` to version `1.2.0`.
+- Main logic improvement:
+  - liquidity now compares projected current-candle volume against completed-candle averages instead of comparing raw partial-candle volume directly
+- Reason for the change:
+  - Gunbot is cycling on websocket updates inside the active candle
+  - raw current-candle volume was making the relative-volume gate unrealistically strict during development
+- Added new liquidity settings:
+  - `PROJECT_CURRENT_VOLUME`
+  - `PROJECTED_VOLUME_FLOOR`
+- Added `relvol=` to live `[STATE]` log lines for easier tuning.
+- Updated `GUIDE.md` to document the new Aegis liquidity options.
+
+### 2026-03-28 Kestrel strategy and docs
+
+- Added a second strategy:
+  - `Kestrel.js`
+- Current version:
+  - `1.0.1`
+- Added dedicated documentation:
+  - `KESTREL.md`
+- Also updated:
+  - `README.md`
+    - linked the separate Kestrel documentation without mixing the Aegis operator guide
+- Kestrel also received the same projected-volume treatment and `relvol=` log telemetry.
+
+### 2026-03-28 ops scripts and cron
+
+- Added a separate Kestrel monitor:
+  - `ops/kestrel-monitor.js`
+- Added log-retention automation:
+  - `ops/log-maintenance.js`
+- Added repo hygiene:
+  - `.gitignore`
+    - ignores generated monitor reports, history files, cron logs, and state snapshots under `ops/`
+  - removed tracked Aegis monitor runtime artifacts from the git index with `git rm --cached`
+- Installed cron jobs:
+  - Aegis monitor every 5 minutes
+  - Kestrel monitor every 5 minutes on an offset
+  - log maintenance hourly
+- Current cron contents:
+  - `*/5 * * * * /usr/bin/node /home/xaos/gunbot/customStrategies/ops/aegis-monitor.js >> /home/xaos/gunbot/customStrategies/ops/aegis-monitor-cron.log 2>&1`
+  - `2-59/5 * * * * /usr/bin/node /home/xaos/gunbot/customStrategies/ops/kestrel-monitor.js >> /home/xaos/gunbot/customStrategies/ops/kestrel-monitor-cron.log 2>&1`
+  - `17 * * * * /usr/bin/node /home/xaos/gunbot/customStrategies/ops/log-maintenance.js >> /home/xaos/gunbot/customStrategies/ops/log-maintenance-cron.log 2>&1`
+
+### 2026-03-28 live findings after the new rollout
+
+- Confirmed hot reload in live logs:
+  - `Aegis Regime Reclaim 1.2.0`
+  - `Kestrel Tape Scalper 1.0.1`
+- Current Aegis monitor report:
+  - `USDT-PAXG` remains the closest Aegis candidate
+  - latest reviewed state:
+    - `stage=reclaim-watch`
+    - `score=3/5`
+    - `skip=weak-lower-wick`
+    - `liquidity=volume-too-light`
+    - `relvol=0.03x`
+  - current Aegis majors still remain mostly regime-blocked in the reviewed live window
+- Current Kestrel live read is materially better than the first draft:
+  - `USDT-XRP` reached:
+    - `phase=armed`
+    - `stage=reclaim-watch`
+    - `score=3/5`
+  - active blockers now:
+    - `bearish-signal-close`
+    - `rsi-delta-weak`
+  - liquidity for Kestrel on XRP is now often `ok` with `relvol` around `0.23x` to `0.25x`
+
+### 2026-03-28 log-retention result
+
+- Ran `ops/log-maintenance.js` manually once after creation.
+- Result:
+  - checked files:
+    - `11`
+  - trimmed files:
+    - `6`
+  - reclaimed:
+    - `637.16 MiB`
+- Main directory impact:
+  - `/home/xaos/gunbot/gunbot_logs`
+    - from roughly `753 MiB`
+    - down to roughly `150 MiB`
+- The pair logs were reduced to about `12 MiB` each.
+
+### 2026-03-28 current test status after strategy and ops pass
+
+- `config.js` JSON parse passed.
+- Syntax checks passed for:
+  - `Aegis.js`
+  - `Kestrel.js`
+  - `ops/kestrel-monitor.js`
+  - `ops/log-maintenance.js`
+- Live scripts executed successfully:
+  - `ops/aegis-monitor.js`
+  - `ops/kestrel-monitor.js`
+  - `ops/log-maintenance.js`
+- Current confirmed live state:
+  - Aegis remains selective and still has no verified completed trade in the reviewed live window
+  - Kestrel is already producing setup-armed transitions on XRP in simulator mode
+
+### Remaining / next iteration after simulator matrix expansion
+
+1. Watch whether `USDT-PAXG` converts from reclaim-watch into a real Aegis entry after the new balanced profile and projected-volume logic.
+2. Watch whether Kestrel on `USDT-XRP` converts its new `setup armed` state into actual entries and TP/exit flow.
+3. If Aegis remains universally blocked on relative volume after more live cycles, revisit the volume model before simply lowering thresholds further.
+4. Treat Aegis monitor cumulative blocker counters as historical totals, not as clean post-change experiment data.
+
+### 2026-03-28 Claude audit actions, runtime isolation fix, and profile split
+
+- Backups created before this round:
+  - `/home/xaos/gunbot/backups/aegis-20260328-073208`
+- Reviewed the Claude deep audit supplied by the user and acted on the high-confidence items already implemented or confirmed in code:
+  - Aegis now includes:
+    - guarded `percentChange()`
+    - SMA-seeded EMA calculation
+    - corrected reset-clear logic
+    - stale-exit runner protection
+    - improved liquidity measurement using completed plus projected candle activity
+    - ask-based buy sizing
+    - state mutation only after confirmed `buyMarket()` / `sellMarket()` success
+    - optional two-bar reclaim confirmation
+  - Kestrel also now includes the matching low-risk execution fixes:
+    - guarded `percentChange()`
+    - SMA-seeded EMA
+    - improved blended volume measurement
+    - ask-based buy sizing
+    - post-fill state mutation only after confirmed order results
+    - time-stop protection after TP1
+- Added the same filename guard to `Kestrel.js` that was already added to `Aegis.js`.
+  - Purpose:
+    - prevent Gunbot eval-loader behavior from executing both strategy files on the wrong pair when custom strategy files are scanned
+  - New runtime versions after this fix:
+    - `Aegis.js`
+      - `1.3.1`
+    - `Kestrel.js`
+      - `1.1.1`
+- Reworked the simulator pair matrix in `config.js` so the profiles are intentionally different instead of duplicated:
+  - Aegis:
+    - `USDT-BTC`
+      - `conservative`
+      - `15m`
+      - control pair
+    - `USDT-ETH`
+      - `aggressive`
+      - `15m`
+      - conversion test pair
+    - `USDT-PAXG`
+      - `balanced`
+      - `15m`
+      - looser pair-level reclaim / liquidity test
+  - Kestrel:
+    - `USDT-PENDLE`
+      - `aggressive`
+      - `5m`
+      - `KESTREL_MAX_RELOAD_COUNT=4`
+    - `USDT-BNB`
+      - `balanced`
+      - `5m`
+      - `KESTREL_MAX_RELOAD_COUNT=2`
+    - `USDT-SOL`
+      - `aggressive`
+      - `5m`
+      - `KESTREL_MAX_RELOAD_COUNT=4`
+    - `USDT-XRP`
+      - `conservative`
+      - `5m`
+      - `KESTREL_MAX_RELOAD_COUNT=1`
+- Sizing / simulator capital changes now in config:
+  - all Aegis pairs:
+    - `AEGIS_TRADE_LIMIT=100`
+    - `TRADING_LIMIT=400`
+    - `MIN_VOLUME_TO_BUY=15`
+    - `MIN_VOLUME_TO_SELL=15`
+  - all Kestrel pairs:
+    - `KESTREL_TRADE_LIMIT=50`
+    - `TRADING_LIMIT=300`
+    - `MIN_VOLUME_TO_BUY=15`
+    - `MIN_VOLUME_TO_SELL=15`
+  - Reason:
+    - per-trade budget and pair-level headroom are now explicitly separated so simulator ladder tests are not blocked by pair caps
+- Pair-specific tuning added to increase coverage:
+  - `USDT-PAXG`
+    - `MIN_RELATIVE_VOLUME=0.10`
+    - `RECLAIM_WICK_RATIO=0.18`
+    - `RECLAIM_CLOSE_LOCATION=0.46`
+    - `MOMENTUM_MIN_RSI_DELTA=0.05`
+    - `VALUE_MIN_PULLBACK_PCT=0.15`
+    - `MIN_ENTRY_SCORE=3`
+    - `PROJECTED_VOLUME_FLOOR=0.20`
+  - `USDT-ETH`
+    - `MIN_RELATIVE_VOLUME=0.25`
+    - `RECLAIM_CLOSE_LOCATION=0.50`
+    - `MOMENTUM_MIN_RSI_DELTA=0.08`
+    - `REGIME_MIN_SLOPE_PCT=-0.05`
+    - `REGIME_MIN_SEPARATION_PCT=0.03`
+    - `MIN_ENTRY_SCORE=3`
+    - `PROJECTED_VOLUME_FLOOR=0.20`
+- Files changed this round:
+  - `Aegis.js`
+  - `Kestrel.js`
+  - `/home/xaos/gunbot/config.js`
+  - `GUIDE.md`
+  - `KESTREL.md`
+  - `LOG.md`
+  - `MEMORY.md`
+- Current expected next checks after Gunbot cycles:
+  1. confirm no fresh `Kestrel` logs appear on Aegis-assigned pairs
+  2. confirm no fresh `Aegis` logs appear on Kestrel-assigned pairs
+  3. confirm state files hot-reload the new pair profile split
+  4. watch whether ETH and PAXG begin arming or converting more often under the looser test matrix
+
+### 2026-03-28 Mako creation, XRP reassignment, and HFT lane split
+
+- Backups created before this round:
+  - `/home/xaos/gunbot/backups/aegis-20260328-074522`
+  - includes:
+    - `config.js`
+    - `KESTREL.md`
+    - `LOG.md`
+    - `MEMORY.md`
+    - `crontab.before`
+- User asked whether Kestrel was too close to Aegis and requested a true HFT-style strategy if needed.
+- Decision:
+  - Kestrel remains a valid fast continuation strategy
+  - but it still shares too much execution philosophy with Aegis to represent a genuinely separate HFT lane
+  - therefore a new strategy was created from the ground up instead of stretching Kestrel further
+
+#### New strategy added
+
+- Added:
+  - `Mako.js`
+    - `Mako Micro Scalper 1.0.0`
+  - `MAKO.md`
+  - `ops/mako-monitor.js`
+- Strategy concept:
+  - intrabar stretch-and-snapback mean reversion
+  - no higher-timeframe regime gate
+  - no continuation-score clone of Aegis
+  - state machine based:
+    - `idle`
+    - `liquidity-blocked`
+    - `stretch-watch`
+    - `armed`
+    - `entry-ready`
+    - `bag-manage`
+    - `trail-manage`
+- Core math:
+  - anchor EMA
+  - fast EMA
+  - pulse EMA
+  - ATR stretch from anchor
+  - intrabar bounce ratio off active candle low
+  - trigger reclaim
+  - short RSI / pulse sanity
+  - blended projected plus completed candle activity
+- Mako is intentionally designed to be able to trade multiple times inside one `5m` candle if the intrabar move resets and re-arms quickly enough.
+
+#### Pair deployment change
+
+- Reassigned:
+  - `USDT-XRP`
+    - from `Kestrel.js`
+    - to `Mako.js`
+- New XRP simulator config:
+  - `PERIOD=5`
+  - `TRADING_LIMIT=240`
+  - `MAKO_TRADE_LIMIT=30`
+  - `MAKO_PROFILE=turbo`
+  - `MAKO_MAX_LAYER_COUNT=5`
+  - `MAKO_LAYER_DISTANCE_ATR=0.28`
+  - `ENABLE_NOTIFICATIONS=false`
+- Kestrel active set is now:
+  - `USDT-PENDLE`
+  - `USDT-BNB`
+  - `USDT-SOL`
+
+#### Ops / monitoring
+
+- Added a dedicated Mako monitor:
+  - `ops/mako-monitor.js`
+- Installed cron:
+  - `4-59/5 * * * * /usr/bin/node /home/xaos/gunbot/customStrategies/ops/mako-monitor.js >> /home/xaos/gunbot/customStrategies/ops/mako-monitor-cron.log 2>&1`
+- Existing log-retention automation already covers the new monitor output naming pattern through `.gitignore` and the established log-maintenance workflow.
+
+#### Verification
+
+- Passed:
+  - `node --check /home/xaos/gunbot/customStrategies/Mako.js`
+  - `node --check /home/xaos/gunbot/customStrategies/ops/mako-monitor.js`
+  - `config.js` JSON parse
+- Manual monitor run passed:
+  - `Mako monitor | pairs=1 | USDT-XRP=idle/not-stretched/-0.15atr`
+- Live Gunbot log confirmed:
+  - `Mako Micro Scalper 1.0.0` on `USDT-XRP`
+- Recent wrong-pair scan after this round:
+  - no fresh `Mako` lines on non-XRP pairs
+  - no fresh `Aegis` lines on Kestrel or Mako pairs
+  - no fresh `Kestrel` lines on BTC, PAXG, or XRP
+- One earlier stray `Kestrel` line on `USDT-ETH` appeared during the transition window, but a later wrong-pair scan came back clean.
+
+#### Current live read
+
+- Aegis:
+  - `USDT-PAXG`
+    - strongest current candidate
+    - reached `reclaim-watch`
+    - `score=4/5`
+    - still blocked by `weak-lower-wick`
+  - `USDT-BTC`
+    - still correct control pair
+    - `regime-blocked`
+- Kestrel:
+  - `USDT-BNB`
+    - still the closest Kestrel continuation candidate in the reviewed window
+  - Kestrel fleet now correctly reports `pairs=3`
+- Mako:
+  - `USDT-XRP`
+    - current early live state:
+      - `stage=idle`
+      - `skip=not-stretched`
+      - `stretch=-0.15atr`
+      - `relvol=0.03x`
+    - no entry yet, which is expected immediately after deployment because the pair has not produced a qualifying intrabar overshoot in the reviewed window
+
+#### Files changed this round
+
+- `Mako.js`
+- `MAKO.md`
+- `ops/mako-monitor.js`
+- `/home/xaos/gunbot/config.js`
+- `KESTREL.md`
+- `LOG.md`
+- `MEMORY.md`
+
+#### Next
+
+1. Let Mako accumulate several hours of XRP intrabar data before tuning thresholds.
+2. First Mako tuning targets, if needed:
+   - `MAKO_ENTRY_ATR`
+   - `MAKO_ARM_BOUNCE_RATIO`
+   - `MAKO_MIN_RELATIVE_VOLUME`
+   - `MAKO_LAYER_DISTANCE_ATR`
+3. Keep Aegis and Mako tuning independent:
+   - Aegis remains the selective regime product
+   - Mako is now the pure simulator HFT lane

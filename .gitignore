@@ -1,0 +1,6 @@
+ops/*-cron.log
+ops/*-history.log
+ops/*-report.txt
+ops/*-state.json
+
+!ops/*.js
