@@ -636,3 +636,54 @@
 
 - Latest runtime-snapshot hardening backup:
   - `/home/xaos/gunbot/backups/aegis-20260328-103117-runtime-snapshot`
+
+## Gunbot Ops Note Learned On 2026-03-28
+
+- When Gunbot appears alive but stops cycling:
+  - check `gunbot_logs.txt` modification time
+  - check pair state-file modification times
+  - check `ps` for the Gunbot process state
+  - if the process is alive and stuck in `ep_poll` while logs stop advancing, inspect exchange websocket health
+- Repeated Binance lines observed before the stall:
+  - `Disconnected from Binance WebSocket.`
+  - `Error code: 1008 Pong timeout`
+- On this host, websocket mode became unstable enough to allow:
+  - one completed sweep
+  - then no further rounds
+- Stable fallback confirmed:
+  - `/home/xaos/gunbot/config.js`
+    - `WS_ENABLED=false`
+  - Gunbot then resumed continuous rounds:
+    - `#5`
+    - `#6`
+    - `#7`
+- Local launcher correction:
+  - `/home/xaos/gunbot/start.sh` originally pointed at `/root/gunbot`
+  - safe local launcher now uses:
+    - `screen -dmS gunbot bash -lc 'cd /home/xaos/gunbot && exec ./gunthy-linux'`
+
+## Latest Backup
+
+- Latest websocket-fallback backup:
+  - `/home/xaos/gunbot/backups/aegis-20260328-103833-ws-fallback`
+- Latest ops logging backup:
+  - `/home/xaos/gunbot/backups/aegis-20260328-103915-ops-log`
+
+## Websocket Retest Rule Learned On 2026-03-28
+
+- A second websocket retest was performed after restoring `WS_ENABLED=true`.
+- Duplicate Gunbot process lineage can confuse websocket debugging, so always reduce to one live Gunbot process before judging websocket behavior.
+- Even after cleaning that up, websocket mode still stalled on this host.
+- Stable current rule:
+  - `/home/xaos/gunbot/config.js`
+    - keep `WS_ENABLED=false`
+- `/home/xaos/gunbot/start.sh` should remain executable and should be invoked as the standard recovery path.
+- Verify Gunbot health with:
+  - advancing `Round #` lines in `/home/xaos/gunbot/gunbot_logs/gunbot_logs.txt`
+  - advancing timestamps in `/home/xaos/gunbot/json/binance-*-state.json`
+- Do not spend more strategy-debug time blaming the strategy files when the transport layer is what stalled.
+
+## Latest Backup
+
+- Latest websocket-retest final backup:
+  - `/home/xaos/gunbot/backups/aegis-20260328-105000-ws-final`

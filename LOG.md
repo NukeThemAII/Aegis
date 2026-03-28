@@ -1656,3 +1656,125 @@ Verified from official docs:
    - no immediate stale recovery exit on fresh bags
 2. If any wrong-pair log prefix appears again after `1.3.4` / `1.1.5` / `1.0.4`, treat it as a new Gunbot runtime behavior change and inspect immediately.
 3. Do not retune PENDLE or PAXG entry logic based on these two losses; they were bug-driven, not strategy-quality evidence.
+
+## 2026-03-28 - Gunbot non-cycling incident, websocket fallback recovery
+
+### What was analyzed
+
+- User reported Gunbot was hanging with no new logs and no new cycles.
+- Reviewed:
+  - `/home/xaos/gunbot/gunbot_logs/gunbot_logs.txt`
+  - pair state-file timestamps in `/home/xaos/gunbot/json/`
+  - live Gunbot process state via `ps`
+  - active sockets via `ss` and `lsof`
+  - `/home/xaos/gunbot/start.sh`
+  - `/home/xaos/gunbot/config.js`
+
+### Findings
+
+- Gunbot process was alive and idle in `ep_poll`, not crashed.
+- Log/state timestamps were frozen around `2026-03-28 10:32:10 CET`.
+- After restart, Gunbot could complete a single full sweep and then stop before the next round.
+- The live log contained repeated exchange-side websocket failures before the stall:
+  - `Disconnected from Binance WebSocket.`
+  - `Error code: 1008 Pong timeout`
+- `start.sh` was also wrong for this host:
+  - it still pointed at `/root/gunbot`
+  - actual install path is `/home/xaos/gunbot`
+
+### Behavior changed
+
+- Updated `/home/xaos/gunbot/start.sh`
+  - now starts Gunbot from the actual host path
+  - now uses a detached `screen` session named `gunbot`
+- Updated `/home/xaos/gunbot/config.js`
+  - `WS_ENABLED` changed from `true` to `false`
+  - this moves Gunbot to polling mode as a stability fallback
+- Restarted Gunbot cleanly from `/home/xaos/gunbot`
+
+### Files changed
+
+- `/home/xaos/gunbot/start.sh`
+- `/home/xaos/gunbot/config.js`
+- `LOG.md`
+- `MEMORY.md`
+
+### Verification
+
+- New Gunbot process started successfully in detached screen session:
+  - `53617.gunbot`
+- Continuous rounds resumed after the fallback:
+  - `Round #5`
+  - `Round #6`
+  - `Round #7`
+- State files resumed updating continuously:
+  - `/home/xaos/gunbot/json/binance-USDT-PAXG-state.json`
+  - `/home/xaos/gunbot/json/binance-USDT-XRP-state.json`
+
+### Runtime assumptions
+
+- Current Binance websocket behavior on this host is unstable enough to stall Gunbot after a sweep.
+- Polling mode is slower than websocket mode, but it is currently the stable path.
+- This change is an operational fallback, not a permanent judgment that websocket mode is always bad.
+
+### Next
+
+1. Keep running in polling mode for stability while strategy debugging continues.
+2. If websocket mode needs to be restored later, do it only after a focused Gunbot exchange-connectivity audit.
+3. Do not attribute the earlier “non cycling” behavior to the strategy files; the direct evidence pointed to Gunbot/exchange data flow instead.
+
+## 2026-03-28 - Websocket Retest Verdict
+
+### What was analyzed
+
+- Retested Gunbot with `/home/xaos/gunbot/config.js` set back to `WS_ENABLED=true`.
+- Checked live Gunbot process state, `screen` sessions, `gunbot_logs.txt`, and pair state-file timestamps during the retest.
+- Cleaned up duplicate Gunbot process lineage so the websocket test could be judged on a single active process.
+- Reverted to `WS_ENABLED=false` and restarted Gunbot cleanly after the websocket retest stalled again.
+
+### Behavior changed
+
+- `/home/xaos/gunbot/config.js`
+  - `WS_ENABLED` was temporarily set back to `true` for retest
+  - then reverted to `false` after the stall repeated
+- `/home/xaos/gunbot/start.sh`
+  - launcher file mode corrected to executable so restart behavior is reliable
+
+### Files changed
+
+- `/home/xaos/gunbot/config.js`
+- `/home/xaos/gunbot/start.sh`
+- `LOG.md`
+- `MEMORY.md`
+
+### Verification
+
+- With `WS_ENABLED=true`, Gunbot started but then stopped advancing after a short sweep window.
+- The clean single-process websocket retest still stalled:
+  - latest rounds stopped around:
+    - `USDT-XRP Round #30 2026/03/28 10:46:22`
+  - log and pair state timestamps froze again during websocket mode
+- After reverting to `WS_ENABLED=false` and restarting through `/home/xaos/gunbot/start.sh`, continuous rounds resumed:
+  - `USDT-PAXG Round #40 2026/03/28 10:48:55`
+  - `USDT-BTC Round #37 2026/03/28 10:48:58`
+  - `USDT-ETH Round #37 2026/03/28 10:49:01`
+  - `USDT-XRP Round #31 2026/03/28 10:48:52`
+- All tracked pair state files resumed updating in polling mode:
+  - `/home/xaos/gunbot/json/binance-USDT-BTC-state.json`
+  - `/home/xaos/gunbot/json/binance-USDT-PAXG-state.json`
+  - `/home/xaos/gunbot/json/binance-USDT-PENDLE-state.json`
+  - `/home/xaos/gunbot/json/binance-USDT-BNB-state.json`
+  - `/home/xaos/gunbot/json/binance-USDT-SOL-state.json`
+  - `/home/xaos/gunbot/json/binance-USDT-XRP-state.json`
+
+### Runtime assumptions
+
+- On this host, websocket mode is still operationally unstable even after removing duplicate Gunbot process confusion.
+- Polling mode remains the correct baseline while strategy development continues.
+- This is still an ops/connectivity problem, not evidence of a strategy deadlock in `Aegis.js`, `Kestrel.js`, or `Mako.js`.
+
+### Next
+
+1. Keep `WS_ENABLED=false` until there is a dedicated Gunbot websocket audit.
+2. If websocket mode is revisited later, test it only with a single Gunbot process and timestamp-based verification of rounds and state files.
+3. Continue strategy work on the stable polling baseline instead of burning more time on exchange transport instability.

@@ -228,9 +228,12 @@ This keeps the fast strategy honest. We are not testing one profile three times 
 - `KESTREL_HARD_STOP_PCT`
 - `KESTREL_STOP_LOOKBACK`
 - `KESTREL_STOP_BUFFER_PCT`
+- `KESTREL_POST_ENTRY_GRACE_SECONDS`
 - `KESTREL_TIME_STOP_MINUTES`
 - `KESTREL_TIME_STOP_MAX_PROFIT_PCT`
 - `KESTREL_MOMENTUM_EXIT_RSI`
+
+`KESTREL_POST_ENTRY_GRACE_SECONDS` is specifically there to stop bad immediate discretionary exits on a fresh fill. Hard stops still work immediately. Momentum and time-stop exits wait until the grace window is over.
 
 ### Visual and logging controls
 
