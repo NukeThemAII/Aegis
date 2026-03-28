@@ -660,6 +660,86 @@ Future audits should follow same pattern:
 7. Documentation review
 8. Operational review
 
+## 2026-03-28 Re-Audit Results
+
+### Re-audit verdict
+
+**Overall: 92/100 (A) - IMPROVED CODE BASE**
+
+All medium-severity findings from original audit have been resolved.
+
+### Strategy score changes
+
+| Strategy | Original | Current | Delta | Version Change |
+|----------|----------|---------|-------|----------------|
+| Aegis | 92/100 | 94/100 | +2 | 1.3.4 → 1.3.5 |
+| Mako | 88/100 | 90/100 | +2 | 1.0.4 → 1.0.5 |
+| Kestrel | 90/100 | 92/100 | +2 | 1.1.5 → 1.2.0 |
+
+### Findings resolution status
+
+**Medium severity (2):**
+1. ✅ Bag recovery race condition - RESOLVED
+2. ✅ Deployment scope exceeds validation - RESOLVED
+
+**Low severity (12):**
+1. ⚠️ Code duplication - DEFERRED
+2. ⚠️ Inconsistent naming - DEFERRED
+3. ⚠️ Magic numbers - PARTIALLY
+4. ✅ Runtime snapshot arrays - RESOLVED
+5. ✅ Buy execution pricing - RESOLVED
+6. ✅ Volume projection edge case - MITIGATED
+7. ✅ Aegis entry score - RESOLVED (close-only mode)
+8. ✅ Aegis DCA logic - RESOLVED (invalidation check)
+9. ✅ Aegis HTF cache - MITIGATED
+10. ✅ Mako HFT assumption - RESOLVED (Mako paused)
+11. ✅ Mako layer logic - MITIGATED
+12. ✅ Kestrel reload threshold - DEFERRED
+
+### New features implemented
+
+1. **Close-Only Entry Mode (Aegis)** - Prevents intrabar fake-outs
+2. **Invalidation Check for Entry (Aegis)** - Blocks entries below invalidation
+3. **Runtime Snapshot Array Slicing (All)** - Prevents shared mutable references
+4. **Buy Reference Price Hardening (All)** - Prefers ask for conservative sizing
+5. **Beta Risk Profile (Kestrel)** - Explicit dev/simulator profile
+
+### Current deployment matrix
+
+```
+Aegis (Production):
+- USDT-BTC: 15m, conservative
+- USDT-PAXG: 15m, balanced, close-only=true
+- USDT-SOL: 15m, aggressive
+
+Kestrel (Beta/Dev):
+- USDT-XRP: 5m, beta
+
+Mako (Inactive):
+- No active pairs
+```
+
+### Operational improvements
+
+- Monitor scripts now filter to enabled pairs only
+- Matrix signature reset on config changes
+- Stale state pruning active
+- Mako monitor removed from crontab
+
+### Re-audit deliverables
+
+- Updated `Auditqwen.md` with complete re-audit report
+- Updated `LOG.md` with re-audit session details
+- This `MEMORY.md` section for durable findings
+
+### Next actions
+
+1. Continue monitoring PAXG close-only behavior
+2. Continue monitoring XRP beta Kestrel performance
+3. Consider STRATEGIES.md creation
+4. Maintain current deployment scope until validation complete
+5. Schedule next audit after v2.0 or production milestone
+
 ## Runtime Snapshot Rule Learned On 2026-03-28
 
 - Gunbot custom strategy runtime objects can behave like a shared mutable async context across pairs.
@@ -855,3 +935,59 @@ Future audits should follow same pattern:
 
 - Latest matrix-refresh backup:
   - `/home/xaos/gunbot/backups/aegis-20260328-114438-matrix-refresh`
+
+## Audit Verification Rule Learned On 2026-03-28
+
+- Re-audits can be correct at the verdict level while still carrying stale code snippets.
+- Current example:
+  - `Auditqwen.md` correctly recognized the major improvements
+  - but some sample snippets already lag the shipped source
+- Safe rule:
+  - trust audits for prioritization and external perspective
+  - trust the live source files for exact implementation details
+  - never patch code by copying an audit snippet without verifying against current source first
+
+## Latest Backup
+
+- Latest Qwen re-audit note backup:
+  - `/home/xaos/gunbot/backups/aegis-20260328-120711-qwen-reaudit-note`
+
+## PAXG Tuning Rule Learned On 2026-03-28
+
+- When Aegis `USDT-PAXG` spends many hours with:
+  - regime on
+  - liquidity mostly ok
+  - close-only waiting active
+  - repeated `pullback-too-shallow`
+- the first live tuning step should be override-level, not code-level.
+- Current low-risk simulator adjustment:
+  - `VALUE_MIN_PULLBACK_PCT` reduced from `0.15` to `0.10`
+  - `MOMENTUM_MIN_RSI_DELTA` reduced from `0.05` to `0.02`
+- Leave BTC unchanged as control pair.
+- Leave SOL unchanged while regime is still persistently off.
+- Do not loosen Kestrel XRP mid-bag without a clear bug signal.
+
+## Latest Backup
+
+- Latest live-log tuning backup:
+  - `/home/xaos/gunbot/backups/aegis-20260328-124500-log-tune`
+
+## Aegis Reclaim Rule Learned On 2026-03-28
+
+- For Aegis close-confirmed reclaim logic, the reclaim baseline should key off the candle close versus the fast EMA.
+- Requiring the live bid to also remain above the fast EMA after the candle close is too strict and can create false `below-reclaim-trigger` blocks on otherwise valid closes.
+- Safe rule:
+  - reclaim baseline = close over fast EMA
+  - do not add an extra live-bid-above-fast requirement on top of the candle-close reclaim test
+
+## Kestrel Beta Momentum Rule Learned On 2026-03-28
+
+- Kestrel beta already proved it can complete a profitable simulator cycle on `USDT-XRP`.
+- When recent beta skips include `rsi-above-ceiling` during otherwise valid 5m continuation structure, the next experiment should be a small RSI ceiling increase, not a broad multi-knob loosen.
+- Current live beta experiment:
+  - `KESTREL_MOMENTUM_RSI_CEILING = 76`
+
+## Latest Backup
+
+- Latest trade-review backup:
+  - `/home/xaos/gunbot/backups/aegis-20260328-151000-trade-review`

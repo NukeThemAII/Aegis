@@ -1,6 +1,6 @@
 /*
  * Aegis Regime Reclaim
- * Version: 1.3.5
+ * Version: 1.3.6
  * Updated: 2026-03-28
  *
  * Premium single-file Gunbot custom strategy.
@@ -9,7 +9,7 @@
 
 var AEGIS_META = {
   name: 'Aegis Regime Reclaim',
-  version: '1.3.5',
+  version: '1.3.6',
   updated: '2026-03-28'
 };
 
@@ -1289,7 +1289,10 @@ function analyzeCurrentFrame(gb, config, state, hasBag) {
     pullbackPct >= config.value.minPullbackPct &&
     pullbackPct <= config.value.maxPullbackPct;
   valueReason = valueOk ? 'value-ok' : buildValueReason(valueBias, touchedBand, pullbackPct, config);
-  reclaimFast = signalClose > fastLast && bid > fastLast;
+  // The reclaim should be keyed to the candle close versus the fast baseline.
+  // Requiring the live bid to remain above the line after the close makes
+  // close-confirmed setups fail on tiny post-close wobble.
+  reclaimFast = signalClose > fastLast;
   bullishClose = signalClose > signalOpen;
   singleBarReclaim = reclaimFast &&
     closeLocation >= config.confirm.closeLocation &&
