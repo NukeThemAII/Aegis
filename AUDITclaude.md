@@ -1,11 +1,11 @@
 # Aegis Deep Audit — Claude
 
-## Revision 3
+## Revision 4
 
-**Date:** 2026-03-28 (third pass — post-hardening commit reconciliation)
-**Strategy version audited:** 1.3.5 (previously 1.3.4, originally 1.1.1)
+**Date:** 2026-03-28 (fourth pass — reclaim logic refinement)
+**Strategy version audited:** 1.3.6 (previously 1.3.5 / 1.3.4 / 1.1.1)
 **File:** `Aegis.js`
-**Context reviewed:** AGENTS.md, MEMORY.md, LOG.md, AUDIT.md, AUDITgemini.md, GUIDE.md, Kestrel.js v1.2.0, Mako.js v1.0.5, KESTREL.md, MAKO.md
+**Context reviewed:** AGENTS.md, MEMORY.md, LOG.md, Kestrel.js v1.2.0, Mako.js v1.0.5, live trade logs
 
 ---
 
@@ -492,6 +492,7 @@ This is a significant operational improvement — the previous 7-pair deployment
 | R2-5.1 | ~Medium~ | Entry path missing invalidation guard | ✅ **Fixed in 1.3.5** (`below-invalidation` skip) |
 | R2-5.3 | ~Opportunity~ | Candle-close-only entry mode | ✅ **Implemented in 1.3.5** (disabled by default) |
 | R2-5.4 | Opportunity | Regime-flip bag exit | 🟡 Still proposed |
+| R4-1 | Refinement | Reclaim relaxed: `close > fast` only (was `close > fast && bid > fast`) | ✅ **Applied in 1.3.6** — correct for close-confirmed mode |
 
 ---
 
@@ -519,27 +520,33 @@ This is a significant operational improvement — the previous 7-pair deployment
 
 ## Final Assessment
 
-### v1.1.1 → v1.3.5 rating: **A**
+### v1.1.1 → v1.3.6 rating: **A**
 
-Aegis now has a perfect bug-fix record — every finding from both audit revisions has been addressed:
+Aegis continues to have zero known bugs. The v1.3.6 change is a single-line refinement to the reclaim confirmation logic:
+
+**The change:** `reclaimFast = signalClose > fastLast && bid > fastLast` → `reclaimFast = signalClose > fastLast`
+
+**Audit assessment: ✅ Correct and well-reasoned.**
+
+The old dual-condition required both the candle close AND the live bid to be above the fast EMA. For close-confirmed setups (especially with `AEGIS_CLOSE_ONLY_ENTRY=true` on PAXG), this was overly strict — a candle that closed cleanly above the fast EMA would fail the reclaim check if the bid dipped even 1 tick below the line in the few seconds after the close. The fix properly aligns the reclaim with the close-confirmation thesis: the close is the signal, the bid is just noise after the fact.
+
+This does slightly widen the entry filter — previously, both close AND bid had to be above fast EMA; now only close is checked. But the remaining confirmation layers (close location, wick ratio, bullish close, `signalClose > previousClose`) still provide strong filtering. The change is proportionate and data-driven (observed PAXG behavior, documented in LOG.md).
+
+**Cumulative status:**
 - Original bugs: 6/6 fixed (100%)
 - Revision 2 new findings: 4/4 fixed (100%)
 - Algorithmic improvements: 2/6 implemented (33%)
 - Structural improvements: 0/4 (deferred, not needed for safety)
+- Live-derived refinements: 1 (reclaim relaxation, v1.3.6)
 
-**What changed since Revision 2 (v1.3.4 → v1.3.5):**
-1. `snapshotRuntimeData()` now `.slice()`s arrays — fixes the shallow-copy risk entirely
-2. New `buyReferencePrice()` helper consistently prefers `ask` with `bid` fallback
-3. Entry path now refuses entries already below invalidation (`below-invalidation` skip reason)
-4. New `AEGIS_CLOSE_ONLY_ENTRY` feature (disabled by default, enabled on PAXG)
-5. Setup-stage double evaluation explicitly commented as intentional
-
-**Operational improvement:** The pair matrix was cleaned up — config drift on SOL and XRP resolved. Mako removed from active deployment. Active matrix reduced to 4 focused pairs.
+**What changed since Revision 3 (v1.3.5 → v1.3.6):**
+1. Reclaim check relaxed to `signalClose > fastLast` only — removes false negatives on close-confirmed setups
+2. Kestrel XRP beta got `KESTREL_MOMENTUM_RSI_CEILING: 76` config override (not a code change)
 
 **What's still on the table:**
-The remaining improvements (ATR-relative zones, weighted scoring, regime hysteresis, Chandelier trailing, regime-flip bag exit) are all genuine upgrades, but they're firmly in the category of "sharpen a working product" rather than "fix safety issues."
+Same as Revision 3 — ATR-relative zones, weighted scoring, regime hysteresis, Chandelier trailing, regime-flip bag exit. All optional enhancements.
 
-**Aegis v1.3.5 is production-clean with zero known bugs.** The next frontier is selectivity refinement and exit quality.
+**Aegis v1.3.6 is production-clean with zero known bugs.** The reclaim refinement improves live conversion without weakening discipline.
 
 ---
 ---
@@ -1224,7 +1231,7 @@ Mako's bag recovery just checks `hadBagLastCycle` and uses `Date.now()` as entry
 
 | Strategy | Rating | Change | Maturity | Primary Risk |
 |----------|--------|--------|----------|--------------|
-| Aegis v1.3.5 | **A** | ⬆️ from A- | Production-clean, zero known bugs | Selectivity (algo improvement opportunity) |
+| Aegis v1.3.6 | **A** | — | Production-clean, zero known bugs | Selectivity (algo improvement opportunity) |
 | Kestrel v1.2.0 | **B+** | — | Infrastructure hardened, algo open | Momentum exit too aggressive |
 | Mako v1.0.5 | **B** | — | Infrastructure hardened, shelved | Dust stuck, broken trailing, spread-negative math |
 
