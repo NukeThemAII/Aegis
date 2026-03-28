@@ -1,6 +1,6 @@
 /*
  * Kestrel Tape Scalper
- * Version: 1.1.6
+ * Version: 1.2.0
  * Updated: 2026-03-28
  *
  * Fast single-file Gunbot custom strategy.
@@ -9,7 +9,7 @@
 
 var KESTREL_META = {
   name: 'Kestrel Tape Scalper',
-  version: '1.1.6',
+  version: '1.2.0',
   updated: '2026-03-28'
 };
 
@@ -123,6 +123,29 @@ function applyRiskProfile(config) {
     config.exits.hardStopPct = 0.60;
     config.exits.postEntryGraceSeconds = 90;
     config.exits.timeStopMinutes = 60;
+    return;
+  }
+
+  if (profile === 'beta') {
+    config.capital.reentryCooldownMinutes = 2;
+    config.pullback.zoneBufferPct = 0.34;
+    config.pullback.minPullbackPct = 0.03;
+    config.pullback.maxPullbackPct = 2.40;
+    config.confirm.closeLocation = 0.40;
+    config.confirm.minBouncePct = 0.0;
+    config.momentum.rsiFloor = 40;
+    config.momentum.minRsiDelta = 0.0;
+    config.liquidity.minRelativeVolume = 0.08;
+    config.liquidity.maxSignalRangePct = 3.20;
+    config.risk.minEntryScore = 2;
+    config.reload.maxCount = 4;
+    config.reload.minDistancePct = 0.25;
+    config.exits.tp1Pct = 0.35;
+    config.exits.trailTriggerPct = 0.15;
+    config.exits.trailPct = 0.16;
+    config.exits.hardStopPct = 1.15;
+    config.exits.postEntryGraceSeconds = 20;
+    config.exits.timeStopMinutes = 40;
     return;
   }
 

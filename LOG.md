@@ -2001,3 +2001,119 @@ Current deployment (8 pairs across 3 strategies) exceeds validation depth.
    - ATR-relative value zone
    - weighted scoring
    - regime hysteresis
+
+## 2026-03-28 - Active Matrix Refresh And Kestrel Beta Lane
+
+### Session focus
+
+- Refreshed the live strategy matrix to match the intended deployment:
+  - `3` active Aegis pairs
+  - `1` active Kestrel pair
+- Cleaned up stale monitor/cron behavior so ops reflects the actual active set.
+- Made Kestrel explicitly more experimental while keeping Aegis technical and structured.
+
+### What was analyzed
+
+- Current `config.js` pair assignments and override families
+- Current `crontab`
+- Latest Gunbot live logs
+- Current Aegis and Kestrel monitor outputs
+
+### Findings
+
+- The live matrix had real config drift:
+  - `USDT-SOL` was running `Aegis.js` with stale Kestrel override keys
+  - `USDT-XRP` was running `Kestrel.js` with stale Aegis override keys
+- Aegis and Kestrel monitors were still reporting disabled or historical pairs because they tracked all configured strategy pairs, not only enabled ones.
+- The old monitor counters also survived matrix changes, which made the reports misleading after pair-role swaps.
+
+### Behavior changed
+
+- Updated `/home/xaos/gunbot/config.js`
+  - active Aegis matrix is now:
+    - `USDT-BTC`
+      - `Aegis.js`
+      - `15m`
+      - `conservative`
+    - `USDT-PAXG`
+      - `Aegis.js`
+      - `15m`
+      - `balanced`
+      - `AEGIS_CLOSE_ONLY_ENTRY=true`
+    - `USDT-SOL`
+      - `Aegis.js`
+      - `15m`
+      - `aggressive`
+  - active Kestrel matrix is now:
+    - `USDT-XRP`
+      - `Kestrel.js`
+      - `5m`
+      - `beta`
+- Updated `/home/xaos/gunbot/customStrategies/Kestrel.js`
+  - version `1.2.0`
+  - added explicit `beta` risk profile for simulator-first dev work
+- Updated `/home/xaos/gunbot/customStrategies/ops/aegis-monitor.js`
+  - now tracks enabled Aegis pairs only
+  - now prunes stale pair state and stale recent events
+  - now resets counters when the active matrix signature changes
+- Updated `/home/xaos/gunbot/customStrategies/ops/kestrel-monitor.js`
+  - same enabled-pair filtering and matrix-signature reset behavior
+- Updated `/home/xaos/gunbot/customStrategies/KESTREL.md`
+  - Kestrel is now documented as a narrow beta/dev lane on `USDT-XRP`
+
+### Ops changed
+
+- Removed the inactive Mako monitor job from `crontab`
+- Current cron now runs only:
+  - Aegis monitor
+  - Kestrel monitor
+  - log maintenance
+
+### Files changed
+
+- `/home/xaos/gunbot/config.js`
+- `/home/xaos/gunbot/customStrategies/Kestrel.js`
+- `/home/xaos/gunbot/customStrategies/ops/aegis-monitor.js`
+- `/home/xaos/gunbot/customStrategies/ops/kestrel-monitor.js`
+- `/home/xaos/gunbot/customStrategies/KESTREL.md`
+- `LOG.md`
+- `MEMORY.md`
+
+### Verification
+
+- Backup created before edits:
+  - `/home/xaos/gunbot/backups/aegis-20260328-114438-matrix-refresh`
+- Static validation passed:
+  - `node --check /home/xaos/gunbot/customStrategies/Kestrel.js`
+  - `node --check /home/xaos/gunbot/customStrategies/ops/aegis-monitor.js`
+  - `node --check /home/xaos/gunbot/customStrategies/ops/kestrel-monitor.js`
+  - `config.js` JSON parse passed
+- Live Gunbot confirmed the config pickup:
+  - `Detected config changes...`
+  - `USDT-SOL` now logs as `Aegis Regime Reclaim 1.3.5` on `15m`
+  - `USDT-XRP` now logs as `Kestrel Tape Scalper 1.2.0` on `5m`
+  - `USDT-PAXG` now shows the new Aegis close-only behavior:
+    - `stage=candle-close-watch`
+    - `skip=waiting-candle-close`
+- Fresh monitor reports are now aligned with the active matrix:
+  - Aegis monitor shows exactly `BTC`, `PAXG`, `SOL`
+  - Kestrel monitor shows exactly `XRP`
+
+### Current posture
+
+- Aegis remains the main product lane:
+  - technical
+  - structured
+  - `15m`
+  - different pair personalities but same disciplined core
+- Kestrel is now explicitly the beta/dev lane:
+  - faster
+  - looser
+  - `5m`
+  - single-pair experimental deployment only
+
+### Next
+
+1. Watch whether `PAXG` close-only mode reduces fake near-ready intrabar states and improves reclaim quality at candle close.
+2. Watch whether `XRP` beta Kestrel moves from `trend-blocked` into real entries more often on `5m`.
+3. Keep Mako off the active matrix until there is a reason to reopen the pure HFT lane.

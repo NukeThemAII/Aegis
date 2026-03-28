@@ -111,6 +111,7 @@ function defaultPairState() {
 function defaultMonitorState() {
   return {
     version: 1,
+    matrixSignature: '',
     logOffset: 0,
     lastRunAt: '',
     pairStates: {},
@@ -137,6 +138,9 @@ function readAegisPairs() {
     if (overrides.STRAT_FILENAME !== 'Aegis.js') {
       return;
     }
+    if (!pairConfig.enabled) {
+      return;
+    }
 
     results.push({
       pairName: pairName,
@@ -152,6 +156,43 @@ function readAegisPairs() {
   });
 
   return results;
+}
+
+function prunePairStates(state, pairs) {
+  var active = {};
+
+  pairs.forEach(function (pair) {
+    active[pair.pairName] = true;
+  });
+
+  Object.keys(state.pairStates || {}).forEach(function (pairName) {
+    if (!active[pairName]) {
+      delete state.pairStates[pairName];
+    }
+  });
+}
+
+function pruneRecentEvents(state, pairs) {
+  var active = {};
+
+  pairs.forEach(function (pair) {
+    active[pair.pairName] = true;
+  });
+
+  state.recentEvents = (state.recentEvents || []).filter(function (event) {
+    return !!active[event.pairName];
+  });
+}
+
+function buildMatrixSignature(pairs) {
+  return pairs.map(function (pair) {
+    return [
+      pair.pairName,
+      pair.riskProfile,
+      pair.logMode,
+      pair.period
+    ].join('|');
+  }).join('||');
 }
 
 function readNewLogText(state) {
@@ -279,16 +320,21 @@ function appendEvent(state, event) {
   state.recentEvents = keepRecent(state.recentEvents, HISTORY_EVENT_LIMIT);
 }
 
-function parseLogChunk(text, state, seenAt) {
+function parseLogChunk(text, state, seenAt, pairs) {
   var lines = String(text || '').split(/\r?\n/);
   var stateRegex = /^\[Aegis Regime Reclaim ([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\]\[STATE\]\s+(.*)$/;
   var eventRegex = /^\[Aegis Regime Reclaim ([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\]\[(INFO|WARN|ERROR|FATAL)\]\[([^\]]+)\]\s+(.*)$/;
+  var pairLookup = {};
   var result = {
     stateLines: 0,
     eventLines: 0,
     newEvents: [],
     errors: []
   };
+
+  (pairs || []).forEach(function (pair) {
+    pairLookup[pair.pairName] = true;
+  });
 
   lines.forEach(function (line) {
     var stateMatch = line.match(stateRegex);
@@ -301,6 +347,9 @@ function parseLogChunk(text, state, seenAt) {
     }
 
     if (stateMatch) {
+      if (!pairLookup[stateMatch[3]]) {
+        return;
+      }
       pairState = ensurePairState(state, stateMatch[3]);
       updatePairState(pairState, stateMatch[1], parseStatePayload(stateMatch[4]), seenAt);
       result.stateLines += 1;
@@ -321,6 +370,10 @@ function parseLogChunk(text, state, seenAt) {
       code: eventMatch[5],
       message: eventMatch[6]
     };
+
+    if (!pairLookup[event.pairName]) {
+      return;
+    }
 
     appendEvent(state, event);
     result.newEvents.push(event);
@@ -542,8 +595,15 @@ function main() {
 
   pairs = readAegisPairs();
   state = safeReadJson(STATE_PATH, defaultMonitorState());
+  if (state.matrixSignature !== buildMatrixSignature(pairs)) {
+    state.pairStates = {};
+    state.recentEvents = [];
+    state.matrixSignature = buildMatrixSignature(pairs);
+  }
+  prunePairStates(state, pairs);
+  pruneRecentEvents(state, pairs);
   logText = readNewLogText(state);
-  parseResult = parseLogChunk(logText, state, seenAt);
+  parseResult = parseLogChunk(logText, state, seenAt, pairs);
   report = buildReport(pairs, state, parseResult, seenAt);
   summaryLine = buildSummaryLine(pairs, state, parseResult, report.alerts, seenAt);
 

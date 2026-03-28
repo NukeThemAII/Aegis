@@ -103,6 +103,7 @@ function defaultPairState() {
 function defaultMonitorState() {
   return {
     version: 1,
+    matrixSignature: '',
     logOffset: 0,
     lastRunAt: '',
     pairStates: {},
@@ -129,6 +130,9 @@ function readKestrelPairs() {
     if (overrides.STRAT_FILENAME !== 'Kestrel.js') {
       return;
     }
+    if (!pairConfig.enabled) {
+      return;
+    }
 
     results.push({
       pairName: pairName,
@@ -144,6 +148,43 @@ function readKestrelPairs() {
   });
 
   return results;
+}
+
+function prunePairStates(state, pairs) {
+  var active = {};
+
+  pairs.forEach(function (pair) {
+    active[pair.pairName] = true;
+  });
+
+  Object.keys(state.pairStates || {}).forEach(function (pairName) {
+    if (!active[pairName]) {
+      delete state.pairStates[pairName];
+    }
+  });
+}
+
+function pruneRecentEvents(state, pairs) {
+  var active = {};
+
+  pairs.forEach(function (pair) {
+    active[pair.pairName] = true;
+  });
+
+  state.recentEvents = (state.recentEvents || []).filter(function (event) {
+    return !!active[event.pairName];
+  });
+}
+
+function buildMatrixSignature(pairs) {
+  return pairs.map(function (pair) {
+    return [
+      pair.pairName,
+      pair.riskProfile,
+      pair.logMode,
+      pair.period
+    ].join('|');
+  }).join('||');
 }
 
 function readNewLogText(state) {
@@ -426,6 +467,14 @@ function main() {
     console.log('Kestrel monitor: no Kestrel pairs detected.');
     return;
   }
+
+  if (state.matrixSignature !== buildMatrixSignature(pairs)) {
+    state.pairStates = {};
+    state.recentEvents = [];
+    state.matrixSignature = buildMatrixSignature(pairs);
+  }
+  prunePairStates(state, pairs);
+  pruneRecentEvents(state, pairs);
 
   if (fs.existsSync(GUNBOT_LOG_PATH)) {
     logText = readNewLogText(state);

@@ -794,3 +794,64 @@ Future audits should follow same pattern:
 
 - Latest audit-fixes backup:
   - `/home/xaos/gunbot/backups/aegis-20260328-111909-audit-fixes`
+
+## Active Matrix Rule Learned On 2026-03-28
+
+- Strategy assignment alone is not enough. Pair override families must match the active strategy file.
+- Real config drift observed:
+  - `USDT-SOL`
+    - `STRAT_FILENAME` was `Aegis.js`
+    - but the override block still carried Kestrel keys
+  - `USDT-XRP`
+    - `STRAT_FILENAME` was `Kestrel.js`
+    - but the override block still carried Aegis keys
+- Current corrected active matrix:
+  - Aegis:
+    - `USDT-BTC`
+      - `15m`
+      - `conservative`
+    - `USDT-PAXG`
+      - `15m`
+      - `balanced`
+      - close-only entry enabled
+    - `USDT-SOL`
+      - `15m`
+      - `aggressive`
+  - Kestrel:
+    - `USDT-XRP`
+      - `5m`
+      - `beta`
+
+## Monitor Hygiene Rule Learned On 2026-03-28
+
+- Ops monitors must track enabled pairs only.
+- When the active pair matrix changes, monitor counters and recent events must be reset or they become misleading.
+- Current safe monitor behavior:
+  - only enabled pairs are tracked
+  - stale pair state is pruned
+  - stale recent events are pruned
+  - state resets when the pair matrix signature changes
+
+## Kestrel Beta Rule Learned On 2026-03-28
+
+- Kestrel now has an explicit `beta` profile in `1.2.0`.
+- `beta` means:
+  - simulator-first
+  - trade-seeking
+  - lower score threshold
+  - looser reclaim / pullback / liquidity gates
+  - short recycle timing
+- Do not treat `beta` as a sellable default. It is a development lane only.
+
+## Current Ops Rule
+
+- Active cron should cover only:
+  - Aegis monitor
+  - Kestrel monitor
+  - log maintenance
+- Mako monitor should stay out of cron while Mako is not part of the active test matrix.
+
+## Latest Backup
+
+- Latest matrix-refresh backup:
+  - `/home/xaos/gunbot/backups/aegis-20260328-114438-matrix-refresh`

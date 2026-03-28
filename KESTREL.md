@@ -150,12 +150,10 @@ Useful live fields include:
 
 ## Current Simulator Matrix
 
-The active Kestrel rollout is intentionally profile-split:
-- `USDT-PENDLE`: aggressive fast ladder test on `5m`
-- `USDT-BNB`: balanced fast continuation test on `5m`
-- `USDT-SOL`: aggressive high-beta fast test on `5m`
+The active Kestrel rollout is now intentionally narrow:
+- `USDT-XRP`: `beta` fast continuation test on `5m`
 
-This keeps the fast strategy honest. We are not testing one profile three times and calling that validation.
+Kestrel is the dev lane now, not the broad validation lane. Aegis owns the main product matrix.
 
 ## Main Overrides
 
@@ -280,19 +278,29 @@ Characteristics:
 - shorter re-entry cooldown
 - faster TP / trail behavior for simulator HFT testing
 
+### Beta
+
+Use only as a development or simulator-only lane.
+
+Characteristics:
+- very low score threshold
+- very loose reclaim and pullback rules
+- very low relative-volume requirement
+- up to four reloads
+- short post-entry grace and faster time-stop recycling
+- intentionally trade-seeking rather than product-conservative
+
 ## Current Test Posture
 
 Current intended usage:
 - Aegis on multiple `15m` pairs as the disciplined regime strategy
-- Kestrel on separate fast pairs, currently configured on:
-  - `USDT-PENDLE`
-  - `USDT-BNB`
-  - `USDT-SOL`
-  all on `5m`
+- Kestrel on one separate fast pair for experimentation:
+  - `USDT-XRP`
+  on `5m`
 
 That separation is deliberate:
 - Aegis is for structured pullback continuation inside a regime gate
-- Kestrel is for higher-frequency local continuation testing
+- Kestrel is for higher-frequency local continuation testing and beta experiments
 
 ## Ops Files
 
