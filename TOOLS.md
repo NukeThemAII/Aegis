@@ -1,40 +1,35 @@
 # TOOLS.md - Local Notes
 
-Skills define _how_ tools work. This file is for _your_ specifics — the stuff that's unique to your setup.
+## Trading Workspace Paths
 
-## What Goes Here
+- Gunbot config: `/home/xaos/gunbot/config.js`
+- Strategy repo root: `/home/xaos/gunbot/customStrategies`
+- Gunbot logs: `/home/xaos/gunbot/gunbot_logs/gunbot_logs.txt`
+- JSON state files: `/home/xaos/gunbot/json`
+- Backup root: `/home/xaos/gunbot/backups`
 
-Things like:
+## Strategy Runtime Files
 
-- Camera names and locations
-- SSH hosts and aliases
-- Preferred voices for TTS
-- Speaker/room names
-- Device nicknames
-- Anything environment-specific
+- Aegis runtime: `/home/xaos/gunbot/customStrategies/Aegis.js`
+- Kestrel runtime: `/home/xaos/gunbot/customStrategies/Kestrel.js`
+- Main session log: `/home/xaos/gunbot/customStrategies/LOG.md`
+- Durable memory: `/home/xaos/gunbot/customStrategies/MEMORY.md`
 
-## Examples
+## Ops Scripts
 
-```markdown
-### Cameras
+- Aegis monitor: `/home/xaos/gunbot/customStrategies/ops/aegis-monitor.js`
+- Kestrel monitor: `/home/xaos/gunbot/customStrategies/ops/kestrel-monitor.js`
+- Log maintenance: `/home/xaos/gunbot/customStrategies/ops/log-maintenance.js`
 
-- living-room → Main area, 180° wide angle
-- front-door → Entrance, motion-triggered
+## Cron
 
-### SSH
+- Aegis monitor every 5 minutes
+- Kestrel monitor every 5 minutes on an offset
+- Log maintenance hourly
 
-- home-server → 192.168.1.100, user: admin
+## Operating Rules
 
-### TTS
-
-- Preferred voice: "Nova" (warm, slightly British)
-- Default speaker: Kitchen HomePod
-```
-
-## Why Separate?
-
-Skills are shared. Your setup is yours. Keeping them apart means you can update skills without losing your notes, and share skills without leaking your infrastructure.
-
----
-
-Add whatever helps you do your job. This is your cheat sheet.
+- Use live logs and pair state before changing strategy settings.
+- Back up edited files before meaningful changes.
+- Use `LOG.md` for session detail and `MEMORY.md` for durable rules.
+- Treat Aegis as the main premium strategy and Kestrel as the beta/dev lane.

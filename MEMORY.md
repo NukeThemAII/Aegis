@@ -1050,3 +1050,39 @@ Live validation feedback loop now active. Code quality continues to improve.
 
 - Latest trade-review backup:
   - `/home/xaos/gunbot/backups/aegis-20260328-151000-trade-review`
+
+## Restart Matrix Rule Learned On 2026-03-28
+
+- After a Gunbot restart, always re-read the enabled-pair matrix from `config.js` before trusting prior monitor assumptions.
+- Current widened restart matrix:
+  - Aegis: `BTC`, `ETH`, `PAXG`, `SOL`
+  - Kestrel: `PENDLE`, `BNB`, `XRP`
+- The monitor scripts already auto-discover enabled pairs, so cron did not need structural changes.
+
+## ETH Profile Rule Learned On 2026-03-28
+
+- ETH should not inherit the same close-only balanced Aegis profile used for PAXG.
+- If ETH logs show `waiting-candle-close` while regime is still off and structure is overheated, first remove close-only mode and restore a more neutral balanced profile before touching strategy code.
+
+## OpenClaw Workspace Rule Learned On 2026-03-28
+
+- OpenClaw needs explicit trading-workspace context files or it starts from generic assistant templates.
+- Required workspace guidance now lives in:
+  - `IDENTITY.md`
+  - `SOUL.md`
+  - `TOOLS.md`
+  - `USER.md`
+  - `HEARTBEAT.md`
+  - `BOOT.md`
+  - `OPENCLAW_PROMPT.md`
+- Keep these aligned with the actual Gunbot workflow:
+  - inspect logs
+  - inspect config
+  - run monitors
+  - back up before edits
+  - update `LOG.md` and `MEMORY.md`
+
+## Latest Backup
+
+- Latest OpenClaw/workspace backup:
+  - `/home/xaos/gunbot/backups/aegis-20260328-154500-openclaw`

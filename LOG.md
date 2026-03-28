@@ -2717,3 +2717,84 @@ Mako (Inactive):
 1. Confirm Gunbot reloads `Aegis 1.3.6`
 2. Watch whether PAXG shifts from `below-reclaim-trigger` into reclaim-qualified close-only states
 3. Watch whether XRP beta converts more `momentum-watch` near-misses without degrading trade quality
+
+---
+
+## 2026-03-28 - Fresh restart review and OpenClaw workspace setup
+
+### What was analyzed
+
+- Checked the active pair matrix after the fresh restart in `/home/xaos/gunbot/config.js`
+- Reviewed current Gunbot live output in `/home/xaos/gunbot/gunbot_logs/gunbot_logs.txt`
+- Re-ran:
+  - `/home/xaos/gunbot/customStrategies/ops/aegis-monitor.js`
+  - `/home/xaos/gunbot/customStrategies/ops/kestrel-monitor.js`
+- Reviewed cron with `crontab -l`
+- Reviewed the new OpenClaw workspace files:
+  - `IDENTITY.md`
+  - `SOUL.md`
+  - `HEARTBEAT.md`
+  - `TOOLS.md`
+  - `USER.md`
+
+### Findings
+
+- Active custom-pair matrix after restart is now:
+  - Aegis: `BTC`, `ETH`, `PAXG`, `SOL`
+  - Kestrel: `PENDLE`, `BNB`, `XRP`
+- Cron was already healthy:
+  - Aegis monitor every 5 minutes
+  - Kestrel monitor every 5 minutes on offset
+  - log maintenance hourly
+- Monitors are still working with the widened matrix:
+  - Aegis monitor picked up 4 Aegis pairs automatically
+  - Kestrel monitor picked up 3 Kestrel pairs automatically
+- Fresh live read:
+  - `USDT-PAXG` remains the primary Aegis focus pair
+  - `USDT-BTC` remains the control pair
+  - `USDT-SOL` is currently regime-blocked even with otherwise strong local structure
+  - `USDT-ETH` was re-enabled with a PAXG-style close-only profile that did not fit current logs
+  - `USDT-PENDLE` is near-ready on Kestrel beta
+  - `USDT-BNB` and `USDT-XRP` are already in Kestrel bag-manage state
+
+### Files changed
+
+- Updated `/home/xaos/gunbot/config.js`
+- Updated `/home/xaos/gunbot/customStrategies/IDENTITY.md`
+- Updated `/home/xaos/gunbot/customStrategies/SOUL.md`
+- Updated `/home/xaos/gunbot/customStrategies/HEARTBEAT.md`
+- Updated `/home/xaos/gunbot/customStrategies/TOOLS.md`
+- Updated `/home/xaos/gunbot/customStrategies/USER.md`
+- Added `/home/xaos/gunbot/customStrategies/BOOT.md`
+- Added `/home/xaos/gunbot/customStrategies/OPENCLAW_PROMPT.md`
+- Updated `/home/xaos/gunbot/customStrategies/LOG.md`
+- Updated `/home/xaos/gunbot/customStrategies/MEMORY.md`
+
+### Behavior changed
+
+- ETH Aegis overrides were de-cloned from the PAXG profile:
+  - `AEGIS_CLOSE_ONLY_ENTRY: false`
+  - `MIN_RELATIVE_VOLUME: 0.20`
+  - `RECLAIM_WICK_RATIO: 0.20`
+  - `RECLAIM_CLOSE_LOCATION: 0.50`
+  - `MOMENTUM_MIN_RSI_DELTA: 0.06`
+  - `VALUE_MIN_PULLBACK_PCT: 0.12`
+- OpenClaw workspace files now point the agent at the trading-bot workflow instead of generic templates
+
+### Rationale
+
+- ETH should not inherit the same close-only balanced profile used for PAXG. The restart had effectively copied the PAXG behavior into ETH, which made live skip reasons less informative.
+- OpenClaw needs explicit workspace identity, startup rules, and heartbeat instructions or it will operate from weak template defaults.
+
+### Verification
+
+- Backups created at `/home/xaos/gunbot/backups/aegis-20260328-154500-openclaw`
+- Aegis monitor refreshed against 4 enabled Aegis pairs
+- Kestrel monitor refreshed against 3 enabled Kestrel pairs
+- Pending next Gunbot config reload cycle for ETH override confirmation
+
+### Next
+
+1. Confirm ETH stops presenting misleading `waiting-candle-close` states once Gunbot reloads config
+2. Keep monitoring PAXG as the primary Aegis execution candidate
+3. Watch PENDLE as the current Kestrel near-entry beta pair
