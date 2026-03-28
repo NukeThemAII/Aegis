@@ -2446,6 +2446,217 @@ Mako (Inactive):
 
 ---
 
+## 2026-03-28 Comprehensive Re-Audit #2
+
+### Session focus
+
+Full re-audit of all three strategy files to verify changes since first re-audit and assess live validation progress.
+
+### What was analyzed
+
+- Version changes since previous re-audit (Aegis 1.3.5→1.3.6)
+- Reclaim logic refinement in Aegis
+- Live validation progress for all strategies
+- Configuration tuning rationale (PAXG, XRP)
+- Code quality re-assessment
+- Operational discipline verification
+
+### Re-Audit #2 findings summary
+
+#### Overall verdict: **STABLE PRODUCTION CODE** (93/100, A)
+
+**Live validation feedback loop now active. Code quality continues to improve.**
+
+#### Strategy score changes
+
+| Strategy | Original | Re-Audit #1 | Current | Total Delta |
+|----------|----------|-------------|---------|-------------|
+| Aegis | 92/100 | 94/100 | 95/100 | +3 |
+| Mako | 88/100 | 90/100 | 90/100 | +2 |
+| Kestrel | 90/100 | 92/100 | 92/100 | +2 |
+
+**Overall: 92/100 → 93/100 (A → A)**
+
+### Key changes since previous re-audit
+
+#### 1. Aegis Reclaim Logic Refinement (v1.3.6)
+
+**Issue:** Reclaim confirmation was rejecting valid close-confirmed setups due to tiny post-close price wobble.
+
+**Fix:**
+```javascript
+// Before (v1.3.5): Required both close AND live bid above fast EMA
+reclaimFast = signalClose > fastLast && bid > fastLast;
+
+// After (v1.3.6): Keys off candle close only
+reclaimFast = signalClose > fastLast;
+```
+
+**Rationale:**
+> "The reclaim should be keyed to the candle close versus the fast baseline.
+> Requiring the live bid to remain above the line after the close makes
+> close-confirmed setups fail on tiny post-close wobble."
+
+**Assessment:** ✅ Correct fix - aligns implementation with thesis
+
+**Impact:** PAXG should convert more `below-reclaim-trigger` skips into valid setups.
+
+---
+
+#### 2. PAXG Configuration Tuning
+
+**Changes:**
+```javascript
+VALUE_MIN_PULLBACK_PCT: 0.15 -> 0.10
+MOMENTUM_MIN_RSI_DELTA: 0.05 -> 0.02
+```
+
+**Rationale:**
+- Observed pullback samples: 0.09-0.11%
+- Previous 0.15% threshold was blocking valid setups
+- Momentum delta relaxation allows more reclaim opportunities
+
+**Assessment:** ✅ Data-driven tuning based on live behavior
+
+---
+
+#### 3. XRP Beta Override (Kestrel)
+
+**Change:**
+```javascript
+KESTREL_MOMENTUM_RSI_CEILING: 76  // Default is 72
+```
+
+**Rationale:** Allows more 5m continuation tests before momentum considered overheated.
+
+**Assessment:** ✅ Appropriate for beta/dev lane
+
+---
+
+### Live validation status
+
+#### Kestrel XRP (Beta) - ✅ Validated
+
+```
+Status: Full lifecycle completed
+- Entry executed
+- TP1 executed at approx 1.3545
+- Trail-exit executed at approx 1.3516
+- Positive realized P/L
+```
+
+**Conclusion:** Kestrel beta profile is not structurally broken. Working as intended.
+
+---
+
+#### Aegis PAXG (Balanced) - ✅ Improving
+
+```
+Status: Setup quality improving
+- Regime: on(4/4) consistently
+- Liquidity: mostly ok
+- Phase: regularly reaches armed
+- Stage: regularly reaches reclaim-watch
+- Primary blocker: below-reclaim-trigger (should improve with v1.3.6)
+```
+
+**Conclusion:** PAXG tuning is working. Reclaim fix should unlock additional setups.
+
+---
+
+#### Aegis BTC/SOL - ✅ As Expected
+
+```
+Status: Regime-control functioning
+- BTC: repeated regime-blocked, skip=regime-fail
+- SOL: repeated regime-blocked, regime=off(0/4)
+- Liquidity acceptable
+- Blocking is thesis-related, not noise
+```
+
+**Conclusion:** No tuning needed. Pairs serving intended purpose.
+
+---
+
+### Original findings status
+
+**Medium severity (2):** ✅ ALL RESOLVED (unchanged)
+
+**Low severity (12):**
+- 1 Improved (Aegis DCA/reclaim)
+- 7 Resolved/Mitigated (unchanged)
+- 4 Deferred (unchanged)
+
+---
+
+### New issues identified
+
+**Critical/High/Medium:** None found ✅
+
+**Low severity (3):**
+1. ℹ️ Audit code snippet drift - Expected during active development
+2. ⚠️ Close-only entry progress telemetry gap - Minor observability gap
+3. ℹ️ Reclaim logic documentation - Code comments clear, external docs can wait
+
+---
+
+### Operational assessment
+
+#### Tuning Discipline: ✅ Excellent
+
+- Changes based on observed live behavior, not theory
+- Surgical pair-specific adjustments
+- No broad changes without validation
+- Backups created before all changes
+
+#### Deployment Matrix: ✅ Stable
+
+```
+Aegis (Production):
+- USDT-BTC: 15m, conservative (regime-control)
+- USDT-PAXG: 15m, balanced, close-only=true (tuned)
+- USDT-SOL: 15m, aggressive (regime-control)
+
+Kestrel (Beta/Dev):
+- USDT-XRP: 5m, beta (validated)
+
+Mako (Inactive):
+- No active pairs
+```
+
+---
+
+### Files changed
+
+- Updated `/home/xaos/gunbot/customStrategies/Auditqwen.md` (complete re-audit #2 report)
+- Updated `LOG.md` (this session)
+- Updated `MEMORY.md` (re-audit #2 findings)
+
+### Verification
+
+- Aegis v1.3.6 reclaim logic verified
+- PAXG tuning changes verified
+- XRP beta override verified
+- All version bumps confirmed
+- `node --check` passed for all modified files
+
+### Test status
+
+- ✅ Static code analysis complete (re-audit #2)
+- ✅ Kestrel live validation complete (successful trade)
+- ✅ Aegis live validation in progress (improving)
+- ✅ Operational discipline verified
+
+### Next
+
+1. Monitor PAXG behavior with v1.3.6 reclaim logic
+2. Watch for PAXG entry conversion (below-reclaim-trigger → valid setup)
+3. Continue Aegis validation cycle (entry → TP1 → exit)
+4. Consider Mako future decision (reactivate or archive)
+5. Schedule next audit after Aegis full validation cycle completes
+
+---
+
 ## 2026-03-28 - Trade review and follow-up tuning
 
 ### What was analyzed

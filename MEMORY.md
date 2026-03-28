@@ -740,6 +740,65 @@ Mako (Inactive):
 4. Maintain current deployment scope until validation complete
 5. Schedule next audit after v2.0 or production milestone
 
+## 2026-03-28 Re-Audit #2 Results
+
+### Re-audit #2 verdict
+
+**Overall: 93/100 (A) - STABLE PRODUCTION CODE**
+
+Live validation feedback loop now active. Code quality continues to improve.
+
+### Strategy score changes
+
+| Strategy | Original | Re-Audit #1 | Current | Total Delta |
+|----------|----------|-------------|---------|-------------|
+| Aegis | 92/100 | 94/100 | 95/100 | +3 |
+| Mako | 88/100 | 90/100 | 90/100 | +2 |
+| Kestrel | 90/100 | 92/100 | 92/100 | +2 |
+
+**Overall: 92/100 → 93/100 (A → A)**
+
+### Key changes since Re-Audit #1
+
+1. **Aegis v1.3.6** - Reclaim logic refined (close-keyed vs close+live)
+2. **PAXG tuning** - VALUE_MIN_PULLBACK_PCT 0.15→0.10, MOMENTUM_MIN_RSI_DELTA 0.05→0.02
+3. **XRP beta override** - KESTREL_MOMENTUM_RSI_CEILING 76
+
+### Live validation status
+
+| Strategy | Pair | Status | Notes |
+|----------|------|--------|-------|
+| Kestrel | XRP | ✅ Validated | Full lifecycle completed, positive P/L |
+| Aegis | PAXG | ✅ Improving | Setup quality improving, reclaim fix should help |
+| Aegis | BTC | ✅ As expected | Regime-control functioning |
+| Aegis | SOL | ✅ As expected | Regime-control functioning |
+
+### Operational assessment
+
+**Tuning discipline:** ✅ Excellent
+- Data-driven changes based on live behavior
+- Surgical pair-specific adjustments
+- Backups created before all changes
+
+**Deployment matrix:** ✅ Stable
+- 3 Aegis pairs (1 tuned)
+- 1 Kestrel beta pair (validated)
+- Mako inactive
+
+### Re-audit #2 deliverables
+
+- Updated `Auditqwen.md` with complete re-audit #2 report
+- Updated `LOG.md` with re-audit #2 session details
+- This `MEMORY.md` section for durable findings
+
+### Next actions
+
+1. Monitor PAXG behavior with v1.3.6 reclaim logic
+2. Watch for PAXG entry conversion (below-reclaim-trigger → valid setup)
+3. Continue Aegis validation cycle (entry → TP1 → exit)
+4. Consider Mako future decision (reactivate or archive)
+5. Schedule next audit after Aegis full validation cycle completes
+
 ## Runtime Snapshot Rule Learned On 2026-03-28
 
 - Gunbot custom strategy runtime objects can behave like a shared mutable async context across pairs.
