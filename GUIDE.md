@@ -280,6 +280,8 @@ Below are the settings that Aegis currently reads from `gb.data.pairLedger.whats
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `MIN_ENTRY_SCORE` | profile driven | Minimum composite entry score from `1` to `5`. |
+| `AEGIS_CLOSE_ONLY_ENTRY` | `false` | If true, new entries are delayed until the live candle is near its close instead of being evaluated all candle long. |
+| `AEGIS_CLOSE_ONLY_ENTRY_PROGRESS` | `0.92` | Candle progress threshold used when `AEGIS_CLOSE_ONLY_ENTRY=true`. `0.92` means the last 8% of the candle. |
 
 ### 8. DCA
 

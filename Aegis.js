@@ -1,6 +1,6 @@
 /*
  * Aegis Regime Reclaim
- * Version: 1.3.4
+ * Version: 1.3.5
  * Updated: 2026-03-28
  *
  * Premium single-file Gunbot custom strategy.
@@ -9,7 +9,7 @@
 
 var AEGIS_META = {
   name: 'Aegis Regime Reclaim',
-  version: '1.3.4',
+  version: '1.3.5',
   updated: '2026-03-28'
 };
 
@@ -76,6 +76,8 @@ var AEGIS_BASE_CONFIG = {
   },
   risk: {
     minEntryScore: 5,
+    closeOnlyEntry: false,
+    closeOnlyEntryProgress: 0.92,
     useBuyEnabled: true,
     useSellEnabled: true
   },
@@ -214,7 +216,7 @@ function snapshotRuntimeData(sourceData) {
 
   for (key in sourceData) {
     if (Object.prototype.hasOwnProperty.call(sourceData, key)) {
-      snapshot[key] = sourceData[key];
+      snapshot[key] = Array.isArray(sourceData[key]) ? sourceData[key].slice() : sourceData[key];
     }
   }
 
@@ -469,6 +471,12 @@ function buildConfig(gb) {
   );
 
   config.risk.minEntryScore = readFirstNumber(overrides, ['MIN_ENTRY_SCORE'], config.risk.minEntryScore);
+  config.risk.closeOnlyEntry = readFirstBoolean(overrides, ['AEGIS_CLOSE_ONLY_ENTRY'], config.risk.closeOnlyEntry);
+  config.risk.closeOnlyEntryProgress = readFirstNumber(
+    overrides,
+    ['AEGIS_CLOSE_ONLY_ENTRY_PROGRESS'],
+    config.risk.closeOnlyEntryProgress
+  );
   config.risk.useBuyEnabled = readFirstBoolean(overrides, ['AEGIS_USE_BUY_ENABLED'], config.risk.useBuyEnabled);
   config.risk.useSellEnabled = readFirstBoolean(overrides, ['AEGIS_USE_SELL_ENABLED'], config.risk.useSellEnabled);
 
@@ -539,6 +547,7 @@ function buildConfig(gb) {
   config.liquidity.volumeLookback = Math.max(3, config.liquidity.volumeLookback);
   config.liquidity.projectedVolumeFloor = clamp(config.liquidity.projectedVolumeFloor, 0.10, 1.0);
   config.risk.minEntryScore = clamp(config.risk.minEntryScore, 1, 5);
+  config.risk.closeOnlyEntryProgress = clamp(config.risk.closeOnlyEntryProgress, 0.50, 1.0);
   config.dca.maxCount = Math.max(0, Math.floor(config.dca.maxCount));
   config.dca.sizeMultiplier = clamp(config.dca.sizeMultiplier, 0.25, 3.0);
   config.exits.tp1SellRatio = clamp(config.exits.tp1SellRatio, 0.05, 1.0);
@@ -717,6 +726,13 @@ function quoteAmountToBaseValue(amountQuote, price) {
     return 0;
   }
   return quoteAmount * marketPrice;
+}
+
+function buyReferencePrice(frameMetrics) {
+  var ask = safeNumber(frameMetrics && frameMetrics.ask, 0);
+  var bid = safeNumber(frameMetrics && frameMetrics.bid, 0);
+
+  return ask > 0 ? ask : bid;
 }
 
 function safeArrayValues(series) {
@@ -1400,6 +1416,7 @@ function analyzeCurrentFrame(gb, config, state, hasBag) {
       signalRangePct: signalRangePct,
       reason: liquidityReason
     },
+    entryProgressRatio: volumeProgressRatio,
     invalidationPrice: invalidationPrice,
     dcaTarget: dcaTarget,
     entryTarget: entryTarget,
@@ -1560,6 +1577,9 @@ function buildSkipReason(config, runtime, regimeMetrics, frameMetrics, hasBag, h
   if (!enoughBalance) {
     return 'insufficient-base';
   }
+  if (config.risk.closeOnlyEntry && frameMetrics.entryProgressRatio < config.risk.closeOnlyEntryProgress) {
+    return 'waiting-candle-close';
+  }
   if (!regimeMetrics.ready) {
     return regimeMetrics.reason;
   }
@@ -1577,6 +1597,9 @@ function buildSkipReason(config, runtime, regimeMetrics, frameMetrics, hasBag, h
   }
   if (!frameMetrics.liquidity.ok) {
     return frameMetrics.liquidity.reason;
+  }
+  if (frameMetrics.invalidationPrice > 0 && frameMetrics.bid <= frameMetrics.invalidationPrice) {
+    return 'below-invalidation';
   }
   if (compositeScore < config.risk.minEntryScore) {
     return 'score-' + compositeScore + '-of-5';
@@ -1615,6 +1638,9 @@ function determineSetupStage(config, runtime, regimeMetrics, frameMetrics, hasBa
   if (runtime.resetBlocked) {
     return 'reset-pending';
   }
+  if (config.risk.closeOnlyEntry && frameMetrics.entryProgressRatio < config.risk.closeOnlyEntryProgress) {
+    return 'candle-close-watch';
+  }
   if (!regimeMetrics.ready) {
     return 'waiting-htf';
   }
@@ -1632,6 +1658,9 @@ function determineSetupStage(config, runtime, regimeMetrics, frameMetrics, hasBa
   }
   if (!frameMetrics.liquidity.ok) {
     return 'liquidity-screen';
+  }
+  if (frameMetrics.invalidationPrice > 0 && frameMetrics.bid <= frameMetrics.invalidationPrice) {
+    return 'risk-invalidated';
   }
   if (compositeScore < config.risk.minEntryScore) {
     return 'score-blocked';
@@ -1734,7 +1763,7 @@ function emitChartMark(gb, message) {
 
 async function executeBuy(gb, config, state, amountQuote, label, compositeScore, frameMetrics) {
   var minimumBuyBaseValue = minBaseVolumeToBuy(gb);
-  var executionPrice = Math.max(safeNumber(frameMetrics.ask, 0), safeNumber(frameMetrics.bid, 0));
+  var executionPrice = buyReferencePrice(frameMetrics);
   var orderValueBase = quoteAmountToBaseValue(amountQuote, executionPrice);
   var result;
 
@@ -2472,23 +2501,23 @@ async function runAegis(gb) {
   }
 
   if (!hasBag && !hasOpenOrders && skipReason === 'entry-ready') {
-    requestedBuyAmount = config.capital.tradeLimitBase / Math.max(frameMetrics.ask, frameMetrics.bid);
-      if (await executeBuy(gb, config, state, requestedBuyAmount, 'entry', compositeScore, frameMetrics)) {
-        sendNotification(
-          gb,
-          config,
-          state,
-          'entry-executed-' + String(Date.now()),
-          createNotification(
-            'Aegis entry executed on ' + gb.data.pairName + ' at approx ' + formatPrice(frameMetrics.bid) + '.',
-            'success',
+    requestedBuyAmount = config.capital.tradeLimitBase / buyReferencePrice(frameMetrics);
+    if (await executeBuy(gb, config, state, requestedBuyAmount, 'entry', compositeScore, frameMetrics)) {
+      sendNotification(
+        gb,
+        config,
+        state,
+        'entry-executed-' + String(Date.now()),
+        createNotification(
+          'Aegis entry executed on ' + gb.data.pairName + ' at approx ' + formatPrice(frameMetrics.bid) + '.',
+          'success',
           false
         )
       );
     }
   } else if (hasBag && !hasOpenOrders && buyEnabled && !runtime.actionCooldownActive && !runtime.reentryCooldownActive && !state.tp1Done) {
     pnlPct = breakEven > 0 ? percentChange(breakEven, frameMetrics.bid) : 0;
-    requestedDcaAmount = (config.capital.tradeLimitBase * config.dca.sizeMultiplier) / Math.max(frameMetrics.ask, frameMetrics.bid);
+    requestedDcaAmount = (config.capital.tradeLimitBase * config.dca.sizeMultiplier) / buyReferencePrice(frameMetrics);
     if (
       regimeMetrics.pass &&
       frameMetrics.liquidity.ok &&
@@ -2620,6 +2649,7 @@ async function runAegis(gb) {
     skipReason = 'action-cooldown';
   }
 
+  // Re-evaluate after actions so sidebar/chart state reflects the post-trade phase.
   setupStage = determineSetupStage(config, runtime, regimeMetrics, frameMetrics, hasBag, hasOpenOrders, compositeScore, state);
   updateCharts(gb, config, regimeMetrics, frameMetrics, state, hasBag, setupArmed, compositeScore);
   updateSidebar(gb, config, regimeMetrics, frameMetrics, state, runtime, hasBag, setupArmed, skipReason, compositeScore, setupStage);

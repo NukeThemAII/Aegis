@@ -1,6 +1,6 @@
 /*
  * Mako Micro Scalper
- * Version: 1.0.4
+ * Version: 1.0.5
  * Updated: 2026-03-28
  *
  * Intrabar stretch-and-snapback Gunbot custom strategy.
@@ -9,7 +9,7 @@
 
 var MAKO_META = {
   name: 'Mako Micro Scalper',
-  version: '1.0.4',
+  version: '1.0.5',
   updated: '2026-03-28'
 };
 
@@ -223,7 +223,7 @@ function snapshotRuntimeData(sourceData) {
 
   for (key in sourceData) {
     if (Object.prototype.hasOwnProperty.call(sourceData, key)) {
-      snapshot[key] = sourceData[key];
+      snapshot[key] = Array.isArray(sourceData[key]) ? sourceData[key].slice() : sourceData[key];
     }
   }
 
@@ -772,6 +772,13 @@ function quoteAmountToBaseValue(amountQuote, price) {
     return 0;
   }
   return quoteAmount * marketPrice;
+}
+
+function buyReferencePrice(gb, frameMetrics) {
+  var ask = safeNumber(frameMetrics && frameMetrics.ask, safeNumber(gb && gb.data ? gb.data.ask : 0, 0));
+  var bid = safeNumber(frameMetrics && frameMetrics.bid, safeNumber(gb && gb.data ? gb.data.bid : 0, 0));
+
+  return ask > 0 ? ask : bid;
 }
 
 function minimumBuyBaseValue(gb) {
@@ -1528,7 +1535,7 @@ function emitChartMark(gb, message) {
 }
 
 async function executeBuy(gb, config, state, amountQuote, label, frameMetrics) {
-  var executionPrice = Math.max(safeNumber(gb.data.ask, 0), safeNumber(gb.data.bid, 0));
+  var executionPrice = buyReferencePrice(gb, frameMetrics);
   var minimumBuyValue = minimumBuyBaseValue(gb);
   var orderValueBase = quoteAmountToBaseValue(amountQuote, executionPrice);
   var result;
@@ -1691,7 +1698,7 @@ async function runMako(gb) {
   }
 
   if (!hasBag && !hasOpenOrders && config.enabled && skipReason === 'entry-ready') {
-    requestedBuyAmount = config.capital.tradeLimitBase / Math.max(frameMetrics.ask, frameMetrics.bid);
+    requestedBuyAmount = config.capital.tradeLimitBase / buyReferencePrice(gb, frameMetrics);
     if (await executeBuy(gb, config, state, requestedBuyAmount, 'entry', frameMetrics)) {
       sendNotification(
         gb,
@@ -1719,7 +1726,7 @@ async function runMako(gb) {
     availableBase >= config.capital.tradeLimitBase &&
     (!config.layers.requireLowerLowForAdd || frameMetrics.signalLow <= state.watchLow || state.watchLow <= 0)
   ) {
-    requestedLayerAmount = config.capital.tradeLimitBase / Math.max(frameMetrics.ask, frameMetrics.bid);
+    requestedLayerAmount = config.capital.tradeLimitBase / buyReferencePrice(gb, frameMetrics);
     if (await executeBuy(gb, config, state, requestedLayerAmount, 'layer', frameMetrics)) {
       sendNotification(
         gb,

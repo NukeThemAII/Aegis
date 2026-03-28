@@ -1,6 +1,6 @@
 /*
  * Kestrel Tape Scalper
- * Version: 1.1.5
+ * Version: 1.1.6
  * Updated: 2026-03-28
  *
  * Fast single-file Gunbot custom strategy.
@@ -9,7 +9,7 @@
 
 var KESTREL_META = {
   name: 'Kestrel Tape Scalper',
-  version: '1.1.5',
+  version: '1.1.6',
   updated: '2026-03-28'
 };
 
@@ -218,7 +218,7 @@ function snapshotRuntimeData(sourceData) {
 
   for (key in sourceData) {
     if (Object.prototype.hasOwnProperty.call(sourceData, key)) {
-      snapshot[key] = sourceData[key];
+      snapshot[key] = Array.isArray(sourceData[key]) ? sourceData[key].slice() : sourceData[key];
     }
   }
 
@@ -675,6 +675,13 @@ function quoteAmountToBaseValue(amountQuote, price) {
     return 0;
   }
   return quoteAmount * marketPrice;
+}
+
+function buyReferencePrice(frameMetrics) {
+  var ask = safeNumber(frameMetrics && frameMetrics.ask, 0);
+  var bid = safeNumber(frameMetrics && frameMetrics.bid, 0);
+
+  return ask > 0 ? ask : bid;
 }
 
 function safeArrayValues(series) {
@@ -1660,7 +1667,7 @@ function emitChartMark(gb, message) {
 
 async function executeBuy(gb, config, state, amountQuote, label, compositeScore, frameMetrics) {
   var minimumBuyBaseValue = minBaseVolumeToBuy(gb);
-  var executionPrice = Math.max(safeNumber(frameMetrics.ask, 0), safeNumber(frameMetrics.bid, 0));
+  var executionPrice = buyReferencePrice(frameMetrics);
   var orderValueBase = quoteAmountToBaseValue(amountQuote, executionPrice);
   var result;
 
@@ -1925,12 +1932,12 @@ async function runKestrelStrategy(gb) {
       }
     }
   } else if (!hasBag && !hasOpenOrders && skipReason === 'entry-ready') {
-    requestedBuyAmount = config.capital.tradeLimitBase / Math.max(frameMetrics.ask, frameMetrics.bid);
+    requestedBuyAmount = config.capital.tradeLimitBase / buyReferencePrice(frameMetrics);
     if (await executeBuy(gb, config, state, requestedBuyAmount, 'entry', compositeScore, frameMetrics)) {
       sendNotification(gb, config, state, 'entry-' + String(Date.now()), createNotification('Kestrel entry executed on ' + gb.data.pairName + ' at approx ' + formatPrice(frameMetrics.bid) + '.', 'success', false));
     }
   } else if (hasBag && !hasOpenOrders && buyEnabled && !runtime.actionCooldownActive && !runtime.reentryCooldownActive && state.reloadCount < config.reload.maxCount) {
-    reloadAmount = config.capital.tradeLimitBase / Math.max(frameMetrics.ask, frameMetrics.bid);
+    reloadAmount = config.capital.tradeLimitBase / buyReferencePrice(frameMetrics);
     pnlPct = breakEven > 0 ? percentChange(breakEven, frameMetrics.bid) : 0;
     if (
       frameMetrics.bid <= frameMetrics.reloadTarget &&

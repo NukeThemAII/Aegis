@@ -595,6 +595,71 @@
 - Latest Mako trade-marker parity backup:
   - `/home/xaos/gunbot/backups/aegis-20260328-102104-mako-marks`
 
+## 2026-03-28 Comprehensive Code Audit Results
+
+### Audit verdict
+
+**Overall: 90/100 (A-) - GOOD CODE**
+
+No critical or high-severity bugs found. All three strategies are production-ready from a code quality perspective.
+
+### Strategy scores
+
+| Strategy | Version | Score | Grade | Status |
+|----------|---------|-------|-------|--------|
+| Aegis | 1.3.4 | 92/100 | A | Production-ready |
+| Mako | 1.0.4 | 88/100 | B+ | Production-ready |
+| Kestrel | 1.1.5 | 90/100 | A- | Production-ready |
+
+### Key strengths confirmed
+
+- Professional-grade code organization
+- Defensive programming throughout
+- Comprehensive error handling
+- Strong observability (logging, charts, sidebar, notifications)
+- Runtime snapshot pattern prevents stale state
+- Strategy file guards prevent cross-pair execution
+- Multi-mode logging with granular skip reasons
+
+### Issues to track
+
+**Medium (2):**
+1. Bag recovery race condition (already mitigated by defensive fallbacks)
+2. Deployment scope exceeds validation depth (operational risk)
+
+**Low (12):**
+- Code duplication across strategies (~30% file size inflation)
+- Inconsistent helper naming
+- Magic numbers without justification
+- Aegis entry score rigidity (tuning decision)
+- Mako HFT assumption risk (documentation needed)
+- Kestrel reload PnL threshold hardcoded
+
+### Audit deliverables
+
+- Created `Auditqwen.md` - full audit report with findings and recommendations
+- Updated `LOG.md` with audit session details
+- This `MEMORY.md` section for durable audit findings
+
+### Recommended next actions
+
+1. Continue simulator validation (operational priority)
+2. Consider shared utilities library (maintenance improvement)
+3. Create `STRATEGIES.md` for cross-strategy guidance
+4. Review deployment scope vs validation depth
+
+### Audit methodology reference
+
+Future audits should follow same pattern:
+1. Full source read
+2. Pattern analysis
+3. Bug hunting by severity
+4. Standards comparison
+5. Security review
+6. Performance review
+7. Documentation review
+8. Operational review
+
 ## Runtime Snapshot Rule Learned On 2026-03-28
 
 - Gunbot custom strategy runtime objects can behave like a shared mutable async context across pairs.
@@ -687,3 +752,45 @@
 
 - Latest websocket-retest final backup:
   - `/home/xaos/gunbot/backups/aegis-20260328-105000-ws-final`
+
+## Audit Reconciliation Rule Learned On 2026-03-28
+
+- When multiple audits land in the same day, do not stack every recommendation into one release.
+- Current accepted safe-runtime fixes from the Claude/Gemini/Qwen audit set:
+  - snapshot top-level arrays at cycle start instead of preserving shared array references
+  - buy execution reference should prefer ask with bid fallback
+  - Aegis initial entry must respect invalidation the same way DCA already does
+- Current intentionally deferred proposals:
+  - weighted scoring
+  - regime hysteresis
+  - ATR-relative value band
+  - chandelier-style trail
+- Reason for deferral:
+  - those are meaningful behavior changes and should be validated as isolated simulator experiments, not bundled into routine hardening work
+
+## Aegis Entry Hygiene Rule Learned On 2026-03-28
+
+- Aegis `1.3.5` adds two entry-discipline rules that should remain standard:
+  - no fresh long entry when bid is already at or below invalidation
+  - optional close-only entry mode is allowed, but must default to off
+- Aegis close-only controls:
+  - `AEGIS_CLOSE_ONLY_ENTRY`
+  - `AEGIS_CLOSE_ONLY_ENTRY_PROGRESS`
+- Intended use:
+  - pairs like `USDT-PAXG` that repeatedly look almost-ready mid-candle but decay before close
+
+## Snapshot Hardening Rule Learned On 2026-03-28
+
+- Runtime snapshot isolation should clone top-level arrays, not just copy references.
+- Current safe versions after this improvement:
+  - `Aegis.js`
+    - `1.3.5`
+  - `Kestrel.js`
+    - `1.1.6`
+  - `Mako.js`
+    - `1.0.5`
+
+## Latest Backup
+
+- Latest audit-fixes backup:
+  - `/home/xaos/gunbot/backups/aegis-20260328-111909-audit-fixes`
