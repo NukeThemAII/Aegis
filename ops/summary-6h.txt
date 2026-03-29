@@ -1,0 +1,100 @@
+[OpenClaw 6h Digest] 2026-03-29T08:14:23.559Z
+
+Pair matrix:
+USDT-PAXG | Aegis.js | tf=15m | profile=balanced | on
+USDT-BTC | Aegis.js | tf=15m | profile=conservative | on
+USDT-ETH | Aegis.js | tf=15m | profile=balanced | on
+USDT-PENDLE | Kestrel.js | tf=5m | profile=beta | on
+USDT-BNB | Kestrel.js | tf=5m | profile=beta | on
+USDT-SOL | Aegis.js | tf=15m | profile=aggressive | on
+USDT-XRP | Kestrel.js | tf=5m | profile=beta | on
+
+Latest strategy state lines:
+[Kestrel Tape Scalper 1.2.0][binance][USDT-XRP][STATE] tf=5m bid=1.3328 phase=flat stage=trend-blocked score=2/5 setup=idle skip=trend-fail trend=trend-fail pullback=ok reclaim=below-reclaim-trigger momentum=rsi-delta-weak liquidity=ok spread=0.01% relvol=0.83x pull=0.19% rsi=40.8 reload=0/4 stop=1.3175
+[Aegis Regime Reclaim 1.3.7][binance][USDT-PAXG][STATE] tf=15m bid=4496.50 phase=cooldown stage=reentry-cooldown regime=on(3/4) score=2/5 setup=idle skip=exit-cooldown value=pullback-too-shallow reclaim=weak-close-location momentum=rsi-delta-weak liquidity=ok spread=0.00% relvol=0.68x pullback=0.03% rsi=46.8 dca=0/2 stop=4487.89
+[Aegis Regime Reclaim 1.3.7][binance][USDT-BTC][STATE] tf=15m bid=66648.36 phase=flat stage=regime-blocked regime=off(0/4) score=1/5 setup=idle skip=regime-fail value=ok reclaim=below-reclaim-trigger momentum=rsi-delta-weak liquidity=volume-too-light spread=0.00% relvol=0.44x pullback=0.42% rsi=46.6 dca=0/1 stop=66436.45
+[Aegis Regime Reclaim 1.3.7][binance][USDT-ETH][STATE] tf=15m bid=2003.32 phase=flat stage=regime-blocked regime=off(0/4) score=2/5 setup=idle skip=regime-fail value=ok reclaim=below-reclaim-trigger momentum=rsi-delta-weak liquidity=ok spread=0.00% relvol=1.49x pullback=0.45% rsi=46.4 dca=0/2 stop=1996.15
+[Kestrel Tape Scalper 1.2.0][binance][USDT-PENDLE][STATE] tf=5m bid=1.1340 phase=flat stage=trend-blocked score=2/5 setup=idle skip=trend-fail trend=trend-fail pullback=ok reclaim=below-reclaim-trigger momentum=rsi-below-floor liquidity=ok spread=0.00% relvol=3.90x pull=0.35% rsi=36.7 reload=0/4 stop=1.1210
+[Kestrel Tape Scalper 1.2.0][binance][USDT-BNB][STATE] tf=5m bid=613.9500 phase=bag stage=bag-manage score=5/5 setup=idle skip=manage-bag trend=ok pullback=ok reclaim=ok momentum=ok liquidity=ok spread=0.00% relvol=3.04x pull=0.05% rsi=55.5 reload=0/4 stop=606.8896
+[Aegis Regime Reclaim 1.3.7][binance][USDT-SOL][STATE] tf=15m bid=82.4000 phase=flat stage=regime-blocked regime=off(0/4) score=2/5 setup=idle skip=regime-fail value=ok reclaim=below-reclaim-trigger momentum=rsi-delta-weak liquidity=ok spread=0.01% relvol=0.75x pullback=0.76% rsi=43.0 dca=0/3 stop=82.1067
+[Kestrel Tape Scalper 1.2.0][binance][USDT-XRP][STATE] tf=5m bid=1.3329 phase=flat stage=trend-blocked score=2/5 setup=idle skip=trend-fail trend=trend-fail pullback=ok reclaim=below-reclaim-trigger momentum=rsi-delta-weak liquidity=ok spread=0.00% relvol=0.76x pull=0.19% rsi=41.2 reload=0/4 stop=1.3176
+[Aegis Regime Reclaim 1.3.7][binance][USDT-PAXG][STATE] tf=15m bid=4495.96 phase=cooldown stage=reentry-cooldown regime=on(3/4) score=2/5 setup=idle skip=exit-cooldown value=pullback-too-shallow reclaim=below-reclaim-trigger momentum=rsi-delta-weak liquidity=ok spread=0.00% relvol=0.68x pullback=0.05% rsi=44.2 dca=0/2 stop=4487.89
+[Aegis Regime Reclaim 1.3.7][binance][USDT-BTC][STATE] tf=15m bid=66653.67 phase=flat stage=regime-blocked regime=off(0/4) score=1/5 setup=idle skip=regime-fail value=ok reclaim=below-reclaim-trigger momentum=rsi-delta-weak liquidity=volume-too-light spread=0.00% relvol=0.44x pullback=0.42% rsi=47.0 dca=0/1 stop=66437.12
+
+Aegis monitor report (tail):
+Aegis Monitor
+Generated: 2026-03-29T08:11:44.559Z
+Strategy: Aegis Regime Reclaim
+
+Configured Pairs
+- USDT-BTC | enabled=true | risk=conservative | log=cycle | period=15m
+- USDT-ETH | enabled=true | risk=balanced | log=cycle | period=15m
+- USDT-PAXG | enabled=true | risk=balanced | log=cycle | period=15m
+- USDT-SOL | enabled=true | risk=aggressive | log=cycle | period=15m
+
+Latest Snapshot
+- USDT-BTC | stage=regime-blocked | regime=off(0/4) | score=1/5 | skip=regime-fail | reclaim=below-reclaim-trigger | liquidity=volume-too-light | phase=flat | seen=2026-03-29T08:11:44.559Z
+- USDT-ETH | stage=regime-blocked | regime=off(0/4) | score=2/5 | skip=regime-fail | reclaim=weak-close-location | liquidity=ok | phase=flat | seen=2026-03-29T08:11:44.559Z
+- USDT-PAXG | stage=reentry-cooldown | regime=on(3/4) | score=3/5 | skip=exit-cooldown | reclaim=weak-close-location | liquidity=ok | phase=cooldown | seen=2026-03-29T08:11:44.559Z
+- USDT-SOL | stage=regime-blocked | regime=off(0/4) | score=3/5 | skip=regime-fail | reclaim=below-reclaim-trigger | liquidity=ok | phase=flat | seen=2026-03-29T08:11:44.559Z
+
+Focus Pair
+- USDT-PAXG latest: stage=reentry-cooldown score=3/5 skip=exit-cooldown reclaim=weak-close-location liquidity=ok
+- USDT-PAXG near-ready observations=1936, liquidity-blocked near-ready=46, reclaim-blocked near-ready=1667
+- USDT-PAXG top skip blockers: in-bag x2077, exit-cooldown x598, waiting-candle-close x375
+
+Control Pair
+- USDT-BTC latest: stage=regime-blocked regime=off(0/4) score=1/5 skip=regime-fail
+- USDT-BTC regime-on observations=0, regime-blocked observations=3081
+
+New Log Activity
+- state lines processed this run: 20
+- event lines processed this run: 0
+- errors in this run: 0
+
+Alerts
+- USDT-PAXG has reached score 3+ in an allowed regime for 1936 monitor observations without entry. Primary blockers so far: in-bag x2077, exit-cooldown x598, waiting-candle-close x375
+
+Kestrel monitor report (tail):
+Kestrel Monitor Report
+Generated: 2026-03-29T08:12:01.402Z
+Pairs tracked: 3
+
+USDT-BNB | enabled=true | profile=beta | log=cycle
+  latest: stage=bag-manage score=5/5 skip=manage-bag trend=ok pullback=ok reclaim=ok liquidity=ok relvol=3.04x
+  counters: observations=3012 nearReady=2082 trendBlocked=1372 stageStreak=12 skipStreak=12
+  top skips: trend-fail=1349, manage-bag=1285, below-reclaim-trigger=148
+
+USDT-PENDLE | enabled=true | profile=beta | log=cycle
+  latest: stage=trend-blocked score=4/5 skip=trend-fail trend=trend-fail pullback=ok reclaim=ok liquidity=ok relvol=1.45x
+  counters: observations=3025 nearReady=1343 trendBlocked=2190 stageStreak=702 skipStreak=702
+  top skips: trend-fail=2180, manage-bag=555, below-reclaim-trigger=102
+
+USDT-XRP | enabled=true | profile=beta | log=cycle
+  latest: stage=trend-blocked score=3/5 skip=trend-fail trend=trend-fail pullback=ok reclaim=below-reclaim-trigger liquidity=ok relvol=0.25x
+  counters: observations=3013 nearReady=1776 trendBlocked=1794 stageStreak=181 skipStreak=181
+  top skips: trend-fail=1760, manage-bag=1032, below-reclaim-trigger=102
+
+Alerts:
+- USDT-BNB accumulated 2082 near-ready observations. Inspect pullback and liquidity gates.
+- USDT-PENDLE accumulated 1343 near-ready observations. Inspect pullback and liquidity gates.
+- USDT-PENDLE stayed trend-blocked for 702 consecutive observations.
+- USDT-XRP accumulated 1776 near-ready observations. Inspect pullback and liquidity gates.
+- USDT-XRP stayed trend-blocked for 181 consecutive observations.
+
+Recent events:
+- 2026-03-29T08:11:44.588Z | USDT-XRP | stage=trend-blocked | score=3/5 | skip=trend-fail
+- 2026-03-29T08:11:44.588Z | USDT-PENDLE | stage=trend-blocked | score=4/5 | skip=trend-fail
+- 2026-03-29T08:11:44.588Z | USDT-BNB | stage=bag-manage | score=5/5 | skip=manage-bag
+- 2026-03-29T08:11:44.588Z | USDT-XRP | stage=trend-blocked | score=3/5 | skip=trend-fail
+- 2026-03-29T08:11:44.588Z | USDT-PENDLE | stage=trend-blocked | score=4/5 | skip=trend-fail
+- 2026-03-29T08:11:44.588Z | USDT-BNB | stage=bag-manage | score=5/5 | skip=manage-bag
+- 2026-03-29T08:11:44.588Z | USDT-XRP | stage=trend-blocked | score=3/5 | skip=trend-fail
+- 2026-03-29T08:11:44.588Z | USDT-PENDLE | stage=trend-blocked | score=4/5 | skip=trend-fail
+- 2026-03-29T08:12:01.402Z | USDT-BNB | stage=bag-manage | score=5/5 | skip=manage-bag
+- 2026-03-29T08:12:01.402Z | USDT-XRP | stage=trend-blocked | score=3/5 | skip=trend-fail
+
+Mako monitor report (tail):
+Mako Monitor Report
+Generated: 2026-03-28T10:44:02.016Z
+Pairs tracked: 0

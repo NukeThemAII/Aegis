@@ -984,6 +984,51 @@ Live validation feedback loop now active. Code quality continues to improve.
 
 ## Current Ops Rule
 
+- 6h digest script now in place:
+  - `/home/xaos/gunbot/customStrategies/ops/summary-6h.js`
+  - writes `/home/xaos/gunbot/customStrategies/ops/summary-6h.txt`
+  - cron: `0 */6 * * * /usr/bin/node /home/xaos/gunbot/customStrategies/ops/summary-6h.js >> /home/xaos/gunbot/customStrategies/ops/summary-6h-cron.log 2>&1`
+- Telegram push now wired via OpenClaw Gateway cron:
+  - job: "Gunbot 6h Digest" (`e169f911-7b15-46c5-a32d-a9a52dd67b8b`)
+  - schedule: `0 */6 * * *` (Europe/Berlin, default 5m stagger)
+  - delivery: telegram -> `7252946416`
+  - runs isolated agent turn with digest instructions
+
+## Current PAXG Simulator Experiment (2026-03-28)
+
+- PAXG overrides loosened for simulator conversion:
+  - `RECLAIM_WICK_RATIO: 0.18 -> 0.16`
+  - `AEGIS_CLOSE_ONLY_ENTRY_PROGRESS: 0.92 -> 0.90`
+- Purpose: reduce `waiting-candle-close` dominance and test if reclaim quality is just slightly too strict.
+- Keep other pairs unchanged.
+
+## Current Simulator Experiment #2 (2026-03-28)
+
+- PAXG DCA spacing loosened:
+  - `MIN_DCA_DISTANCE_PCT: 1.75 -> 1.40`
+- XRP Kestrel trend gate loosened:
+  - `KESTREL_TREND_MIN_SLOPE_PCT: -0.05 -> -0.10`
+  - `KESTREL_TREND_MAX_BELOW_SLOW_PCT: 0.60 -> 0.90`
+- Purpose: test quicker PAXG recovery adds and reduce XRP trend-blocked streaks.
+
+## Current Simulator Experiment #3 (2026-03-28)
+
+- BNB + PENDLE Kestrel trend gate loosened (match XRP):
+  - `KESTREL_TREND_MIN_SLOPE_PCT: -0.05 -> -0.10`
+  - `KESTREL_TREND_MAX_BELOW_SLOW_PCT: 0.60 -> 0.90`
+- Purpose: reduce trend-blocked streaks on remaining Kestrel pairs.
+
+## Current Simulator Experiment #4 (2026-03-29)
+
+- PAXG DCA spacing loosened further:
+  - `MIN_DCA_DISTANCE_PCT: 1.40 -> 1.20`
+- Kestrel trend gate loosened further on all Kestrel pairs:
+  - `KESTREL_TREND_MIN_SLOPE_PCT: -0.10 -> -0.15`
+  - `KESTREL_TREND_MAX_BELOW_SLOW_PCT: 0.90 -> 1.10`
+- Purpose: reduce trend-blocked streaks and test if entries resume under softer trend conditions.
+
+## Current Ops Rule
+
 - Active cron should cover only:
   - Aegis monitor
   - Kestrel monitor
@@ -1086,3 +1131,49 @@ Live validation feedback loop now active. Code quality continues to improve.
 
 - Latest OpenClaw/workspace backup:
   - `/home/xaos/gunbot/backups/aegis-20260328-154500-openclaw`
+
+## Log Retention Rule Learned On 2026-03-28
+
+- This host has large disk headroom, so Gunbot log retention should favor monitoring value over aggressive trimming.
+- Keep the hourly log-maintenance cron, but use relaxed thresholds.
+- Current retention policy:
+  - `gunbot_logs.txt` trims only above `2 GiB`, keeping `512 MiB`
+  - pair logs trim only above `512 MiB`, keeping `128 MiB`
+  - ops logs trim only above `64 MiB`, keeping `16 MiB`
+- Maintenance reporting should include:
+  - free disk space
+  - Gunbot log directory size
+  - ops directory size
+
+## Latest Backup
+
+- Latest log-policy backup:
+  - `/home/xaos/gunbot/backups/aegis-20260328-162500-log-policy`
+
+## Aegis Bag Transition Rule Learned On 2026-03-29
+
+- `bag-detected` is only a true ledger-recovery event when a bag appears without Aegis already being in `entry-pending`.
+- A filled Aegis entry naturally looks like `!hadBagLastCycle && hasBag` on the next cycle, so recovery logs must suppress that case.
+- Full exits need explicit close-state persistence:
+  - `lastClosedAt`
+  - `lastClosedReason`
+  - `lastClosedEntryPrice`
+  - `lastClosedExitPrice`
+  - `lastClosedPnlPct`
+  - `lastClosedBasePnl`
+- Without this, a valid closed trade looks like "blank state" after `clearBagState`, which is misleading during audits.
+
+## Aegis PAXG Trade Finding On 2026-03-29
+
+- The reviewed PAXG loser was not a random phantom sell.
+- Order ledger and rotated logs confirmed:
+  - buy at `4503.23`
+  - stale exit at `4496.73`
+  - price PnL about `-0.1443%`
+  - base PnL about `-0.34395 USDT`
+- The real code defect was weak close accounting and misleading transition logging around a closed bag, not wholesale loss of all fill state.
+
+## Latest Backup
+
+- Latest PAXG close-audit backup:
+  - `/home/xaos/gunbot/backups/aegis-20260329-085652-paxg-close-audit`

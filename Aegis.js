@@ -1,7 +1,7 @@
 /*
  * Aegis Regime Reclaim
- * Version: 1.3.6
- * Updated: 2026-03-28
+ * Version: 1.3.7
+ * Updated: 2026-03-29
  *
  * Premium single-file Gunbot custom strategy.
  * Spot only. Long only.
@@ -9,8 +9,8 @@
 
 var AEGIS_META = {
   name: 'Aegis Regime Reclaim',
-  version: '1.3.6',
-  updated: '2026-03-28'
+  version: '1.3.7',
+  updated: '2026-03-29'
 };
 
 var AEGIS_COLORS = {
@@ -658,6 +658,45 @@ function ensureState(gb) {
   }
   if (typeof state.lastNotificationPruneAt !== 'number') {
     state.lastNotificationPruneAt = 0;
+  }
+  if (typeof state.pendingBagCloseReason !== 'string') {
+    state.pendingBagCloseReason = '';
+  }
+  if (typeof state.pendingBagCloseAt !== 'number') {
+    state.pendingBagCloseAt = 0;
+  }
+  if (typeof state.pendingBagClosePrice !== 'number') {
+    state.pendingBagClosePrice = 0;
+  }
+  if (typeof state.pendingBagCloseRecovered !== 'boolean') {
+    state.pendingBagCloseRecovered = false;
+  }
+  if (typeof state.lastClosedAt !== 'number') {
+    state.lastClosedAt = 0;
+  }
+  if (typeof state.lastClosedReason !== 'string') {
+    state.lastClosedReason = '';
+  }
+  if (typeof state.lastClosedEntryPrice !== 'number') {
+    state.lastClosedEntryPrice = 0;
+  }
+  if (typeof state.lastClosedExitPrice !== 'number') {
+    state.lastClosedExitPrice = 0;
+  }
+  if (typeof state.lastClosedPnlPct !== 'number') {
+    state.lastClosedPnlPct = 0;
+  }
+  if (typeof state.lastClosedBasePnl !== 'number') {
+    state.lastClosedBasePnl = 0;
+  }
+  if (typeof state.lastClosedRecovered !== 'boolean') {
+    state.lastClosedRecovered = false;
+  }
+  if (typeof state.currentBagRecovered !== 'boolean') {
+    state.currentBagRecovered = false;
+  }
+  if (typeof state.currentBagRecoveredAt !== 'number') {
+    state.currentBagRecoveredAt = 0;
   }
 
   gb.data.pairLedger = pairLedger;
@@ -1488,9 +1527,16 @@ function normalizeRecoveredEntryTime(rawValue) {
 }
 
 function latestOrderTimestamp(gb, type) {
+  var latestOrder = latestMatchingOrder(gb, type);
+
+  return latestOrder ? safeNumber(latestOrder.time, 0) : 0;
+}
+
+function latestMatchingOrder(gb, type) {
   var orders = gb && gb.data && Array.isArray(gb.data.orders) ? gb.data.orders : [];
   var pairName = gb && gb.data ? safeString(gb.data.pairName, '') : '';
   var latest = 0;
+  var latestOrder = null;
   var i;
   var order;
   var orderTime;
@@ -1503,10 +1549,110 @@ function latestOrderTimestamp(gb, type) {
     orderTime = safeNumber(order.time, 0);
     if (orderTime > latest) {
       latest = orderTime;
+      latestOrder = order;
     }
   }
 
-  return latest;
+  return latestOrder;
+}
+
+function firstPositiveNumber(values, fallback) {
+  var i;
+  var value;
+
+  for (i = 0; i < values.length; i += 1) {
+    value = safeNumber(values[i], 0);
+    if (value > 0) {
+      return value;
+    }
+  }
+
+  return safeNumber(fallback, 0);
+}
+
+function resetPendingBagClose(state) {
+  state.pendingBagCloseReason = '';
+  state.pendingBagCloseAt = 0;
+  state.pendingBagClosePrice = 0;
+  state.pendingBagCloseRecovered = false;
+}
+
+function markPendingBagClose(state, reason, exitPrice, now) {
+  state.pendingBagCloseReason = safeString(reason, '');
+  state.pendingBagCloseAt = safeNumber(now, 0);
+  state.pendingBagClosePrice = safeNumber(exitPrice, 0);
+  state.pendingBagCloseRecovered = !!state.currentBagRecovered;
+}
+
+function captureClosedTradeSnapshot(gb, state, reason, now) {
+  var latestBuy = latestMatchingOrder(gb, 'buy');
+  var latestSell = latestMatchingOrder(gb, 'sell');
+  var entryPrice = firstPositiveNumber([
+    latestSell ? latestSell.inventory_cost : 0,
+    latestBuy ? latestBuy.rate : 0,
+    state.lastFillPrice
+  ], 0);
+  var exitPrice = firstPositiveNumber([
+    latestSell ? latestSell.rate : 0,
+    state.pendingBagClosePrice
+  ], 0);
+  var closedAt = firstPositiveNumber([
+    latestSell ? latestSell.time : 0,
+    state.pendingBagCloseAt,
+    now
+  ], now);
+  var pnlPct = 0;
+  var basePnl = latestSell ? safeNumber(latestSell.pnl, 0) : 0;
+
+  if (entryPrice > 0 && exitPrice > 0) {
+    pnlPct = percentChange(entryPrice, exitPrice);
+  }
+
+  state.lastClosedAt = closedAt;
+  state.lastClosedReason = safeString(reason, 'external-close');
+  state.lastClosedEntryPrice = entryPrice;
+  state.lastClosedExitPrice = exitPrice;
+  state.lastClosedPnlPct = pnlPct;
+  state.lastClosedBasePnl = basePnl;
+  state.lastClosedRecovered = !!(state.pendingBagCloseRecovered || state.currentBagRecovered);
+}
+
+function finalizeClosedBag(gb, state, config, reason, now, externalClose) {
+  var closeReason = safeString(reason, externalClose ? 'external-close' : 'closed');
+  var summary;
+
+  captureClosedTradeSnapshot(gb, state, closeReason, now);
+  clearBagState(state, config, now);
+
+  summary = 'entry ' + formatPrice(state.lastClosedEntryPrice) +
+    ' -> exit ' + formatPrice(state.lastClosedExitPrice) +
+    ' (' + formatPercent(state.lastClosedPnlPct) + ')';
+
+  if (externalClose) {
+    logInfo(gb, 'bag-flat', 'Bag closed outside the current Aegis action path. ' + summary + '. Cooldown applied.');
+  } else {
+    logInfo(gb, 'bag-closed', 'Bag confirmed closed after Aegis ' + closeReason + ' exit. ' + summary + '.');
+  }
+
+  resetPendingBagClose(state);
+}
+
+function maybeBackfillLatestClosedTrade(gb, state, hasBag) {
+  var latestBuy = latestMatchingOrder(gb, 'buy');
+  var latestSell = latestMatchingOrder(gb, 'sell');
+
+  if (hasBag || !latestSell) {
+    return;
+  }
+  if (safeNumber(state.lastClosedAt, 0) >= safeNumber(latestSell.time, 0)) {
+    return;
+  }
+  if (latestBuy && safeNumber(latestSell.time, 0) < safeNumber(latestBuy.time, 0)) {
+    return;
+  }
+
+  captureClosedTradeSnapshot(gb, state, state.lastClosedReason || 'historical-close', safeNumber(latestSell.time, 0));
+  resetPendingBagClose(state);
 }
 
 function recoveredBagEntryTime(gb) {
@@ -1800,6 +1946,8 @@ async function executeBuy(gb, config, state, amountQuote, label, compositeScore,
     state.trailStop = 0;
     state.needsReset = false;
     state.phase = 'entry-pending';
+    state.currentBagRecovered = false;
+    state.currentBagRecoveredAt = 0;
   } else if (label === 'dca') {
     state.dcaCount += 1;
     state.phase = 'bag';
@@ -1857,6 +2005,7 @@ async function executeSell(gb, state, amountQuote, label, frameMetrics) {
     state.trailPeak = Math.max(frameMetrics.bid, state.trailPeak || 0);
   } else {
     state.cooldownUntil = Date.now();
+    markPendingBagClose(state, label, frameMetrics.bid, Date.now());
   }
 
   logInfo(
@@ -1870,7 +2019,10 @@ async function executeSell(gb, state, amountQuote, label, frameMetrics) {
   return true;
 }
 
-function clearBagState(state, config) {
+function clearBagState(state, config, now) {
+  var effectiveNow = safeNumber(now, Date.now());
+  var cooldownTarget = effectiveNow + (config.capital.reentryCooldownMinutes * 60 * 1000);
+
   state.tp1Done = false;
   state.dcaCount = 0;
   state.trailPeak = 0;
@@ -1880,7 +2032,9 @@ function clearBagState(state, config) {
   state.initialPositionSize = 0;
   state.phase = 'cooldown';
   state.needsReset = true;
-  state.cooldownUntil = Date.now() + (config.capital.reentryCooldownMinutes * 60 * 1000);
+  state.cooldownUntil = Math.max(safeNumber(state.cooldownUntil, 0), cooldownTarget);
+  state.currentBagRecovered = false;
+  state.currentBagRecoveredAt = 0;
 }
 
 function phaseName(state, hasBag, setupArmed, reentryCooldownActive) {
@@ -2391,6 +2545,34 @@ async function runAegis(gb) {
   runtime.resetBlocked = !!state.needsReset;
 
   updateBagRecovery(gb, state, runtime, hasBag);
+  if (state.hadBagLastCycle && !hasBag) {
+    finalizeClosedBag(
+      gb,
+      state,
+      config,
+      state.pendingBagCloseReason || 'external-close',
+      runtime.now,
+      !state.pendingBagCloseReason
+    );
+    runtime.reentryCooldownActive = runtime.now < safeNumber(state.cooldownUntil, 0);
+    runtime.resetBlocked = !!state.needsReset;
+  }
+  if (!state.hadBagLastCycle && hasBag) {
+    if (state.phase === 'entry-pending') {
+      state.currentBagRecovered = false;
+      state.currentBagRecoveredAt = 0;
+    } else {
+      state.currentBagRecovered = true;
+      state.currentBagRecoveredAt = runtime.now;
+      logInfo(
+        gb,
+        'bag-detected',
+        'Recovered live bag state from Gunbot ledger at approx ' +
+        formatPrice(Math.max(safeNumber(gb.data.breakEven, 0), safeNumber(state.lastFillPrice, 0), safeNumber(gb.data.bid, 0))) + '.'
+      );
+    }
+  }
+  maybeBackfillLatestClosedTrade(gb, state, hasBag);
   regimeMetrics = await getHigherTimeframeMetrics(gb, state, config);
   frameMetrics = analyzeCurrentFrame(gb, config, state, hasBag);
 
@@ -2494,15 +2676,6 @@ async function runAegis(gb) {
     );
   }
 
-  if (state.hadBagLastCycle && !hasBag) {
-    clearBagState(state, config);
-    logInfo(gb, 'bag-flat', 'Bag closed outside the current Aegis action path. Reset and cooldown applied.');
-  }
-
-  if (!state.hadBagLastCycle && hasBag) {
-    logInfo(gb, 'bag-detected', 'Recovered live bag state from Gunbot ledger.');
-  }
-
   if (!hasBag && !hasOpenOrders && skipReason === 'entry-ready') {
     requestedBuyAmount = config.capital.tradeLimitBase / buyReferencePrice(frameMetrics);
     if (await executeBuy(gb, config, state, requestedBuyAmount, 'entry', compositeScore, frameMetrics)) {
@@ -2558,7 +2731,8 @@ async function runAegis(gb) {
     } else if (frameMetrics.bid <= frameMetrics.invalidationPrice && frameMetrics.invalidationPrice > 0) {
       sellAmount = normalizedSellAmount(gb, safeNumber(gb.data.quoteBalance, 0), true);
       if (sellAmount > 0 && await executeSell(gb, state, sellAmount, 'invalidation', frameMetrics)) {
-        clearBagState(state, config);
+        captureClosedTradeSnapshot(gb, state, 'invalidation', runtime.now);
+        clearBagState(state, config, runtime.now);
         hasBag = false;
         sendNotification(
           gb,
@@ -2594,7 +2768,8 @@ async function runAegis(gb) {
     } else if (state.tp1Done && state.trailStop > 0 && frameMetrics.bid <= state.trailStop) {
       sellAmount = normalizedSellAmount(gb, safeNumber(gb.data.quoteBalance, 0), true);
       if (sellAmount > 0 && await executeSell(gb, state, sellAmount, 'trail', frameMetrics)) {
-        clearBagState(state, config);
+        captureClosedTradeSnapshot(gb, state, 'trail', runtime.now);
+        clearBagState(state, config, runtime.now);
         hasBag = false;
         sendNotification(
           gb,
@@ -2611,7 +2786,8 @@ async function runAegis(gb) {
     } else if (!state.tp1Done && state.entryTime > 0 && staleAgeMinutes >= config.exits.staleMinutes && pnlPct <= config.exits.staleMaxProfitPct) {
       sellAmount = normalizedSellAmount(gb, safeNumber(gb.data.quoteBalance, 0), true);
       if (sellAmount > 0 && await executeSell(gb, state, sellAmount, 'stale', frameMetrics)) {
-        clearBagState(state, config);
+        captureClosedTradeSnapshot(gb, state, 'stale', runtime.now);
+        clearBagState(state, config, runtime.now);
         hasBag = false;
         sendNotification(
           gb,

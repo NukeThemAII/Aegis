@@ -9,6 +9,7 @@
 
 var fs = require('fs');
 var path = require('path');
+var childProcess = require('child_process');
 
 var OPS_DIR = __dirname;
 var CUSTOM_STRATEGIES_DIR = path.resolve(OPS_DIR, '..');
@@ -17,21 +18,28 @@ var GUNBOT_DIR = path.resolve(CUSTOM_STRATEGIES_DIR, '..');
 var REPORT_PATH = path.join(OPS_DIR, 'log-maintenance-report.txt');
 var STATE_PATH = path.join(OPS_DIR, 'log-maintenance-state.json');
 
+var GUARDRAILS = {
+  minFreeBytes: 50 * 1024 * 1024 * 1024,
+  preferredFreeBytes: 100 * 1024 * 1024 * 1024,
+  gunbotLogsSoftCapBytes: 8 * 1024 * 1024 * 1024,
+  opsLogsSoftCapBytes: 512 * 1024 * 1024
+};
+
 var RULES = [
   {
     label: 'gunbot-main-log',
     mode: 'single',
     filePath: path.join(GUNBOT_DIR, 'gunbot_logs', 'gunbot_logs.txt'),
-    maxBytes: 64 * 1024 * 1024,
-    keepBytes: 16 * 1024 * 1024
+    maxBytes: 2 * 1024 * 1024 * 1024,
+    keepBytes: 512 * 1024 * 1024
   },
   {
     label: 'gunbot-pair-logs',
     mode: 'directory',
     dirPath: path.join(GUNBOT_DIR, 'gunbot_logs'),
     filePattern: /^binance\..+\.log$/,
-    maxBytes: 48 * 1024 * 1024,
-    keepBytes: 12 * 1024 * 1024
+    maxBytes: 512 * 1024 * 1024,
+    keepBytes: 128 * 1024 * 1024
   },
   {
     label: 'ops-logs',
@@ -43,8 +51,8 @@ var RULES = [
       'kestrel-monitor-report.txt': true,
       'log-maintenance-report.txt': true
     },
-    maxBytes: 4 * 1024 * 1024,
-    keepBytes: 1 * 1024 * 1024
+    maxBytes: 64 * 1024 * 1024,
+    keepBytes: 16 * 1024 * 1024
   }
 ];
 
@@ -82,6 +90,51 @@ function formatBytes(value) {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function getAvailableBytes(targetPath) {
+  var output;
+  var lines;
+  var parts;
+  var availableBlocks;
+
+  try {
+    output = childProcess.execFileSync('df', ['-Pk', targetPath], {
+      encoding: 'utf8'
+    });
+    lines = output.trim().split('\n');
+    if (lines.length < 2) {
+      return 0;
+    }
+    parts = lines[1].trim().split(/\s+/);
+    if (parts.length < 4) {
+      return 0;
+    }
+    availableBlocks = safeNumber(parts[3], 0);
+    return availableBlocks * 1024;
+  } catch (err) {
+    return 0;
+  }
+}
+
+function directorySizeBytes(dirPath) {
+  var total = 0;
+
+  if (!fs.existsSync(dirPath)) {
+    return 0;
+  }
+
+  fs.readdirSync(dirPath).forEach(function (name) {
+    var filePath = path.join(dirPath, name);
+    var stat = fs.statSync(filePath);
+    if (stat.isDirectory()) {
+      total += directorySizeBytes(filePath);
+      return;
+    }
+    total += stat.size;
+  });
+
+  return total;
 }
 
 function safeReadJson(filePath, fallback) {
@@ -220,6 +273,14 @@ function renderReport(summary) {
   lines.push('Log Maintenance Report');
   lines.push('Generated: ' + summary.ranAt);
   lines.push('');
+  lines.push('Disk available: ' + formatBytes(summary.diskFreeBytes));
+  lines.push('Preferred free floor: ' + formatBytes(GUARDRAILS.preferredFreeBytes));
+  lines.push('Minimum free floor: ' + formatBytes(GUARDRAILS.minFreeBytes));
+  lines.push('Gunbot logs dir size: ' + formatBytes(summary.gunbotLogsDirBytes));
+  lines.push('Gunbot logs soft cap: ' + formatBytes(GUARDRAILS.gunbotLogsSoftCapBytes));
+  lines.push('Ops dir size: ' + formatBytes(summary.opsDirBytes));
+  lines.push('Ops logs soft cap: ' + formatBytes(GUARDRAILS.opsLogsSoftCapBytes));
+  lines.push('');
   lines.push('Checked files: ' + String(summary.checkedFiles));
   lines.push('Trimmed files: ' + String(summary.trimmedFiles));
   lines.push('Bytes before: ' + formatBytes(summary.bytesBefore));
@@ -248,6 +309,7 @@ function main() {
   var previousState = safeReadJson(STATE_PATH, {});
   var results = [];
   var summary;
+  var gunbotLogsDir = path.join(GUNBOT_DIR, 'gunbot_logs');
 
   ensureDir(OPS_DIR);
 
@@ -257,13 +319,18 @@ function main() {
 
   summary = summarize(results);
   summary.previousRunAt = previousState.ranAt || '';
+  summary.diskFreeBytes = getAvailableBytes(GUNBOT_DIR);
+  summary.gunbotLogsDirBytes = directorySizeBytes(gunbotLogsDir);
+  summary.opsDirBytes = directorySizeBytes(OPS_DIR);
 
   fs.writeFileSync(REPORT_PATH, renderReport(summary), 'utf8');
   writeJson(STATE_PATH, summary);
   console.log(
     '[log-maintenance] checked=' + String(summary.checkedFiles) +
     ' trimmed=' + String(summary.trimmedFiles) +
-    ' reclaimed=' + formatBytes(summary.reclaimedBytes)
+    ' reclaimed=' + formatBytes(summary.reclaimedBytes) +
+    ' free=' + formatBytes(summary.diskFreeBytes) +
+    ' gunbot_logs=' + formatBytes(summary.gunbotLogsDirBytes)
   );
 }
 

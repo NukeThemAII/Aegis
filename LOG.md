@@ -1,5 +1,63 @@
 # LOG.md
 
+## 2026-03-28
+
+### Simulator experiment (PAXG)
+
+- Backed up config + docs to:
+  - `/home/xaos/gunbot/backups/aegis-20260328-172443-experiment/`
+- Loosened PAXG reclaim + close-only timing for simulator conversion testing:
+  - `RECLAIM_WICK_RATIO: 0.18 -> 0.16`
+  - `AEGIS_CLOSE_ONLY_ENTRY_PROGRESS: 0.92 -> 0.90`
+- Rationale: PAXG is repeatedly near-ready but blocked mostly by `waiting-candle-close` and reclaim quality.
+- Scope: PAXG only, no code changes.
+
+### Simulator experiment #2 (PAXG + XRP)
+
+- Backup created:
+  - `/home/xaos/gunbot/backups/aegis-20260328-192846-exp2/`
+- PAXG DCA spacing loosened to test quicker recovery adds:
+  - `MIN_DCA_DISTANCE_PCT: 1.75 -> 1.40`
+- XRP Kestrel trend gate loosened to reduce trend-blocked streaks:
+  - `KESTREL_TREND_MIN_SLOPE_PCT: -0.05 -> -0.10`
+  - `KESTREL_TREND_MAX_BELOW_SLOW_PCT: 0.60 -> 0.90`
+- Scope: PAXG + XRP only, simulator/testing only.
+
+### Simulator experiment #3 (BNB + PENDLE)
+
+- Backup created:
+  - `/home/xaos/gunbot/backups/aegis-20260328-193144-exp3/`
+- Applied same Kestrel trend loosening used on XRP:
+  - `KESTREL_TREND_MIN_SLOPE_PCT: -0.05 -> -0.10`
+  - `KESTREL_TREND_MAX_BELOW_SLOW_PCT: 0.60 -> 0.90`
+- Scope: BNB + PENDLE only.
+
+### Simulator experiment #4 (Kestrel trend + PAXG DCA)
+
+- Backup created:
+  - `/home/xaos/gunbot/backups/aegis-20260329-031457-exp4/`
+- PAXG DCA spacing loosened further:
+  - `MIN_DCA_DISTANCE_PCT: 1.40 -> 1.20`
+- Kestrel trend gate loosened further on all Kestrel pairs:
+  - `KESTREL_TREND_MIN_SLOPE_PCT: -0.10 -> -0.15`
+  - `KESTREL_TREND_MAX_BELOW_SLOW_PCT: 0.90 -> 1.10`
+- Scope: XRP + BNB + PENDLE.
+
+### Ops automation update
+
+- Added new 6h digest script: `/home/xaos/gunbot/customStrategies/ops/summary-6h.js`.
+- Output file: `/home/xaos/gunbot/customStrategies/ops/summary-6h.txt`.
+- Added cron job (every 6 hours):
+  - `0 */6 * * * /usr/bin/node /home/xaos/gunbot/customStrategies/ops/summary-6h.js >> /home/xaos/gunbot/customStrategies/ops/summary-6h-cron.log 2>&1`
+- Initial run completed successfully; digest written.
+- Telegram push not wired (needs OpenClaw-native scheduler or explicit notifier path).
+- OpenClaw Gateway cron job created for Telegram delivery:
+  - name: "Gunbot 6h Digest"
+  - schedule: `0 */6 * * *` (Europe/Berlin, default 5m stagger)
+  - session: isolated agent turn
+  - delivery: telegram -> `7252946416`
+  - job id: `e169f911-7b15-46c5-a32d-a9a52dd67b8b`
+
 ## 2026-03-27
 
 ### Session focus
@@ -2798,3 +2856,136 @@ Mako (Inactive):
 1. Confirm ETH stops presenting misleading `waiting-candle-close` states once Gunbot reloads config
 2. Keep monitoring PAXG as the primary Aegis execution candidate
 3. Watch PENDLE as the current Kestrel near-entry beta pair
+
+---
+
+## 2026-03-28 - Log retention policy relaxed
+
+### What was analyzed
+
+- Checked disk headroom with `df -h`
+- Checked current log sizes in `/home/xaos/gunbot/gunbot_logs`
+- Reviewed current maintenance script in `/home/xaos/gunbot/customStrategies/ops/log-maintenance.js`
+- Reviewed current cron schedule with `crontab -l`
+
+### Findings
+
+- Disk headroom is very large:
+  - root filesystem has about `481G` free
+- Current log footprint is small:
+  - `/home/xaos/gunbot/gunbot_logs` about `29M`
+  - main `gunbot_logs.txt` about `15M`
+  - pair logs about `2M` each
+- The existing cleanup job was not actively harming retention, but its thresholds were sized too tightly for the available disk.
+- The hourly cron itself is fine. The policy needed relaxing, not the cadence.
+
+### Files changed
+
+- Updated `/home/xaos/gunbot/customStrategies/ops/log-maintenance.js`
+- Updated `/home/xaos/gunbot/customStrategies/LOG.md`
+- Updated `/home/xaos/gunbot/customStrategies/MEMORY.md`
+
+### Behavior changed
+
+- Relaxed retention thresholds substantially:
+  - main Gunbot log:
+    - `64 MiB -> 2 GiB`
+    - keep tail `16 MiB -> 512 MiB`
+  - pair logs:
+    - `48 MiB -> 512 MiB`
+    - keep tail `12 MiB -> 128 MiB`
+  - ops logs:
+    - `4 MiB -> 64 MiB`
+    - keep tail `1 MiB -> 16 MiB`
+- Added reporting for:
+  - free disk space
+  - total Gunbot log directory size
+  - total ops directory size
+
+### Rationale
+
+- The bot needs enough retained log history for monitoring, debugging, and AI-driven tuning.
+- With the current disk headroom, aggressive trimming would throw away useful evidence for no operational gain.
+- Hourly checking remains useful as a guardrail, but trimming should only happen when logs are genuinely large.
+
+### Verification
+
+- Backups created at `/home/xaos/gunbot/backups/aegis-20260328-162500-log-policy`
+- Pending runtime execution of the updated maintenance script in this session
+
+### Next
+
+1. Run the updated maintenance script once and confirm the new report shows free-space and directory-size metrics
+2. Leave the hourly cron in place unless actual log growth later proves it unnecessary
+
+---
+
+## 2026-03-29 - PAXG trade investigation and Aegis close-state hardening
+
+### What was analyzed
+
+- Reviewed current and rotated Gunbot logs for `USDT-PAXG`
+- Cross-checked `ops/aegis-monitor-history.log` against the actual PAXG order ledger in `/home/xaos/gunbot/json/binance-USDT-PAXG-state.json`
+- Reviewed Aegis bag recovery, entry, exit, and close-state handling in `/home/xaos/gunbot/customStrategies/Aegis.js`
+- Checked other Aegis pairs for similar recent trade evidence
+
+### Findings
+
+- The latest losing PAXG trade was real:
+  - buy `2026-03-28T16:43:47.729Z` at `4503.23`
+  - sell `2026-03-29T04:44:07.379Z` at `4496.73`
+  - price PnL about `-0.1443%`
+  - base PnL about `-0.34395 USDT`
+- The sell was an Aegis stale exit, not a mystery external liquidation:
+  - rotated logs show `[INFO][stale] Executed stale market sell...`
+  - buy-to-sell age was about `720.33` minutes, matching Aegis balanced `staleMinutes=720`
+- Qwen's "Aegis forgot its own fill entirely" diagnosis was too strong.
+- The real Aegis defects were:
+  - post-close state went mostly blank because Aegis had no persistent last-closed-trade snapshot
+  - full exits could later be mislabeled as `bag-flat` / "outside the current action path"
+  - `bag-detected` could also be misleading after Aegis's own entry, because the next cycle sees the filled bag while the entry cycle still ended with `hasBag=false`
+  - setup-arm evaluation happened before bag-close reconciliation, which could produce misleading `setup-armed` lines around a just-closed bag
+- Other active Aegis pairs (`BTC`, `ETH`, `SOL`) showed no similar recent trade evidence in the reviewed logs.
+
+### Files changed
+
+- Updated `/home/xaos/gunbot/customStrategies/Aegis.js`
+- Updated `/home/xaos/gunbot/customStrategies/LOG.md`
+- Updated `/home/xaos/gunbot/customStrategies/MEMORY.md`
+
+### Behavior changed
+
+- Aegis version bumped to `1.3.7`
+- Added explicit close-state persistence fields in `customStratStore.aegis`:
+  - `lastClosedAt`
+  - `lastClosedReason`
+  - `lastClosedEntryPrice`
+  - `lastClosedExitPrice`
+  - `lastClosedPnlPct`
+  - `lastClosedBasePnl`
+  - `lastClosedRecovered`
+- Added pending close handoff state so Aegis can distinguish:
+  - its own just-fired full exits
+  - externally closed bags
+- Moved bag-close reconciliation earlier in the cycle so close handling is applied before setup notifications and skip-stage presentation.
+- Suppressed false `bag-detected` recovery labeling when the bag appears after Aegis's own `entry-pending` fill.
+- Added historical close backfill from Gunbot order history when no open bag exists and no last-close snapshot is present yet.
+
+### Verification
+
+- Backup created at `/home/xaos/gunbot/backups/aegis-20260329-085652-paxg-close-audit`
+- `node --check /home/xaos/gunbot/customStrategies/Aegis.js` passed
+- Live logs show `Aegis Regime Reclaim 1.3.7`
+- PAXG state now retains the last closed trade snapshot:
+  - `lastClosedAt = 1774759447379`
+  - `lastClosedReason = historical-close`
+  - `lastClosedEntryPrice = 4503.23`
+  - `lastClosedExitPrice = 4496.73`
+  - `lastClosedPnlPct = -0.14434`
+  - `lastClosedBasePnl = -0.34395`
+
+### Next
+
+1. Watch the next full Aegis close on PAXG and confirm the new log sequence is `stale/trail/invalidation -> bag-closed`, not `setup-armed -> bag-flat`
+2. Leave PAXG thresholds unchanged for now; this sample was enough to fix bookkeeping, not enough to justify retuning the entry model
+3. Keep monitoring Kestrel separately as the faster beta lane, because its current issue profile is churn/time-stop behavior rather than Aegis-style close-state accounting
