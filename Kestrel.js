@@ -1,7 +1,7 @@
 /*
  * Kestrel Tape Scalper
- * Version: 1.2.0
- * Updated: 2026-03-28
+ * Version: 1.5.1
+ * Updated: 2026-04-01
  *
  * Fast single-file Gunbot custom strategy.
  * Spot only. Long only.
@@ -9,8 +9,8 @@
 
 var KESTREL_META = {
   name: 'Kestrel Tape Scalper',
-  version: '1.2.0',
-  updated: '2026-03-28'
+  version: '1.5.1',
+  updated: '2026-04-01'
 };
 
 var KESTREL_COLORS = {
@@ -76,11 +76,19 @@ var KESTREL_BASE_CONFIG = {
   reload: {
     maxCount: 0,
     minDistancePct: 0.80,
-    requireTrend: true
+    requireTrend: true,
+    maxDepthFromBreakEvenPct: 0,
+    unlimitedCount: true,
+    belowBreakEvenOnly: true,
+    belowBreakEvenBufferPct: 0,
+    maxBagBase: 0,
+    maxBagPctOfTradingLimit: 0
   },
   exits: {
     tp1Pct: 0.55,
     tp1SellRatio: 0.60,
+    tp2Pct: 0.95,
+    tp2SellRatio: 0.50,
     trailTriggerPct: 0.35,
     trailPct: 0.22,
     hardStopPct: 0.75,
@@ -89,7 +97,9 @@ var KESTREL_BASE_CONFIG = {
     postEntryGraceSeconds: 60,
     timeStopMinutes: 90,
     timeStopMaxProfitPct: 0.20,
-    momentumExitRsi: 44
+    momentumExitMinMinutes: 10,
+    momentumExitRsi: 44,
+    profitOnlyExits: true
   },
   visuals: {
     enableCharts: true,
@@ -118,11 +128,13 @@ function applyRiskProfile(config) {
     config.risk.minEntryScore = 5;
     config.reload.maxCount = 0;
     config.exits.tp1Pct = 0.40;
+    config.exits.tp2Pct = 0.70;
     config.exits.trailTriggerPct = 0.28;
     config.exits.trailPct = 0.18;
     config.exits.hardStopPct = 0.60;
     config.exits.postEntryGraceSeconds = 90;
     config.exits.timeStopMinutes = 60;
+    config.exits.momentumExitMinMinutes = 15;
     return;
   }
 
@@ -141,11 +153,13 @@ function applyRiskProfile(config) {
     config.reload.maxCount = 4;
     config.reload.minDistancePct = 0.25;
     config.exits.tp1Pct = 0.35;
+    config.exits.tp2Pct = 0.65;
     config.exits.trailTriggerPct = 0.15;
     config.exits.trailPct = 0.16;
     config.exits.hardStopPct = 1.15;
     config.exits.postEntryGraceSeconds = 20;
     config.exits.timeStopMinutes = 40;
+    config.exits.momentumExitMinMinutes = 6;
     return;
   }
 
@@ -163,11 +177,13 @@ function applyRiskProfile(config) {
     config.reload.maxCount = 3;
     config.reload.minDistancePct = 0.35;
     config.exits.tp1Pct = 0.45;
+    config.exits.tp2Pct = 0.80;
     config.exits.trailTriggerPct = 0.22;
     config.exits.trailPct = 0.20;
     config.exits.hardStopPct = 0.90;
     config.exits.postEntryGraceSeconds = 45;
     config.exits.timeStopMinutes = 60;
+    config.exits.momentumExitMinMinutes = 8;
   }
 }
 
@@ -502,9 +518,41 @@ function buildConfig(gb) {
   config.reload.maxCount = readFirstNumber(overrides, ['KESTREL_MAX_RELOAD_COUNT'], config.reload.maxCount);
   config.reload.minDistancePct = readFirstNumber(overrides, ['KESTREL_RELOAD_DISTANCE_PCT'], config.reload.minDistancePct);
   config.reload.requireTrend = readFirstBoolean(overrides, ['KESTREL_RELOAD_REQUIRE_TREND'], config.reload.requireTrend);
+  config.reload.maxDepthFromBreakEvenPct = readFirstNumber(
+    overrides,
+    ['KESTREL_RELOAD_MAX_DEPTH_PCT', 'KESTREL_MAX_DCA_DEPTH_PCT'],
+    config.reload.maxDepthFromBreakEvenPct
+  );
+  config.reload.unlimitedCount = readFirstBoolean(
+    overrides,
+    ['KESTREL_UNLIMITED_DCA', 'KESTREL_UNLIMITED_RELOADS'],
+    config.reload.unlimitedCount
+  );
+  config.reload.belowBreakEvenOnly = readFirstBoolean(
+    overrides,
+    ['KESTREL_RELOAD_BELOW_BREAK_EVEN_ONLY', 'KESTREL_DCA_BELOW_BREAK_EVEN_ONLY'],
+    config.reload.belowBreakEvenOnly
+  );
+  config.reload.belowBreakEvenBufferPct = readFirstNumber(
+    overrides,
+    ['KESTREL_RELOAD_BELOW_BREAK_EVEN_BUFFER_PCT', 'KESTREL_DCA_BELOW_BREAK_EVEN_BUFFER_PCT'],
+    config.reload.belowBreakEvenBufferPct
+  );
+  config.reload.maxBagBase = readFirstNumber(
+    overrides,
+    ['KESTREL_MAX_BAG_BASE'],
+    config.reload.maxBagBase
+  );
+  config.reload.maxBagPctOfTradingLimit = readFirstNumber(
+    overrides,
+    ['KESTREL_MAX_BAG_PCT_OF_TRADING_LIMIT'],
+    config.reload.maxBagPctOfTradingLimit
+  );
 
   config.exits.tp1Pct = readFirstNumber(overrides, ['KESTREL_TP1_PCT'], config.exits.tp1Pct);
   config.exits.tp1SellRatio = readFirstNumber(overrides, ['KESTREL_TP1_SELL_RATIO'], config.exits.tp1SellRatio);
+  config.exits.tp2Pct = readFirstNumber(overrides, ['KESTREL_TP2_PCT'], config.exits.tp2Pct);
+  config.exits.tp2SellRatio = readFirstNumber(overrides, ['KESTREL_TP2_SELL_RATIO'], config.exits.tp2SellRatio);
   config.exits.trailTriggerPct = readFirstNumber(overrides, ['KESTREL_TRAIL_TRIGGER_PCT'], config.exits.trailTriggerPct);
   config.exits.trailPct = readFirstNumber(overrides, ['KESTREL_TRAIL_PCT'], config.exits.trailPct);
   config.exits.hardStopPct = readFirstNumber(overrides, ['KESTREL_HARD_STOP_PCT'], config.exits.hardStopPct);
@@ -521,7 +569,17 @@ function buildConfig(gb) {
     ['KESTREL_TIME_STOP_MAX_PROFIT_PCT'],
     config.exits.timeStopMaxProfitPct
   );
+  config.exits.momentumExitMinMinutes = readFirstNumber(
+    overrides,
+    ['KESTREL_MOMENTUM_EXIT_MIN_MINUTES'],
+    config.exits.momentumExitMinMinutes
+  );
   config.exits.momentumExitRsi = readFirstNumber(overrides, ['KESTREL_MOMENTUM_EXIT_RSI'], config.exits.momentumExitRsi);
+  config.exits.profitOnlyExits = readFirstBoolean(
+    overrides,
+    ['KESTREL_PROFIT_ONLY_EXITS'],
+    config.exits.profitOnlyExits
+  );
 
   config.visuals.enableCharts = readFirstBoolean(overrides, ['ENABLE_CHARTS'], config.visuals.enableCharts);
   config.visuals.enableShapes = readFirstBoolean(overrides, ['ENABLE_CHART_SHAPES', 'DISPLAY_CHART_SHAPES'], config.visuals.enableShapes);
@@ -547,9 +605,16 @@ function buildConfig(gb) {
   config.liquidity.projectedVolumeFloor = clamp(config.liquidity.projectedVolumeFloor, 0.10, 1.0);
   config.risk.minEntryScore = clamp(config.risk.minEntryScore, 1, 5);
   config.reload.maxCount = Math.max(0, Math.floor(config.reload.maxCount));
+  config.reload.maxDepthFromBreakEvenPct = Math.max(0, config.reload.maxDepthFromBreakEvenPct);
+  config.reload.belowBreakEvenBufferPct = clamp(config.reload.belowBreakEvenBufferPct, 0, 5.0);
+  config.reload.maxBagBase = Math.max(0, config.reload.maxBagBase);
+  config.reload.maxBagPctOfTradingLimit = clamp(config.reload.maxBagPctOfTradingLimit, 0, 1000);
   config.exits.tp1SellRatio = clamp(config.exits.tp1SellRatio, 0.05, 1.0);
+  config.exits.tp2Pct = Math.max(config.exits.tp1Pct, config.exits.tp2Pct);
+  config.exits.tp2SellRatio = clamp(config.exits.tp2SellRatio, 0.05, 1.0);
   config.exits.stopLookback = Math.max(2, config.exits.stopLookback);
   config.exits.postEntryGraceSeconds = Math.max(0, config.exits.postEntryGraceSeconds);
+  config.exits.momentumExitMinMinutes = Math.max(0, config.exits.momentumExitMinMinutes);
 
   return config;
 }
@@ -580,15 +645,22 @@ function isExpectedStrategyFile(gb, expectedName) {
 }
 
 function ensureState(gb) {
-  var pairLedger = gb.data.pairLedger || {};
-  if (!pairLedger.customStratStore || typeof pairLedger.customStratStore !== 'object' || Array.isArray(pairLedger.customStratStore)) {
-    pairLedger.customStratStore = {};
+  if (!gb.data.pairLedger || typeof gb.data.pairLedger !== 'object') {
+    gb.data.pairLedger = {};
   }
-  if (!pairLedger.customStratStore.kestrel || typeof pairLedger.customStratStore.kestrel !== 'object' || Array.isArray(pairLedger.customStratStore.kestrel)) {
-    pairLedger.customStratStore.kestrel = {};
+  if (!gb.data.pairLedger.customStratStore || typeof gb.data.pairLedger.customStratStore !== 'object' || Array.isArray(gb.data.pairLedger.customStratStore)) {
+    if (gb.data.customStratStore && typeof gb.data.customStratStore === 'object' && !Array.isArray(gb.data.customStratStore)) {
+      gb.data.pairLedger.customStratStore = gb.data.customStratStore;
+    } else {
+      gb.data.pairLedger.customStratStore = {};
+    }
+  }
+  gb.data.customStratStore = gb.data.pairLedger.customStratStore;
+  if (!gb.data.customStratStore.kestrel || typeof gb.data.customStratStore.kestrel !== 'object' || Array.isArray(gb.data.customStratStore.kestrel)) {
+    gb.data.customStratStore.kestrel = {};
   }
 
-  var state = pairLedger.customStratStore.kestrel;
+  var state = gb.data.customStratStore.kestrel;
   if (!state.notificationKeys || typeof state.notificationKeys !== 'object') {
     state.notificationKeys = {};
   }
@@ -601,6 +673,9 @@ function ensureState(gb) {
   }
   if (typeof state.tp1Done !== 'boolean') {
     state.tp1Done = false;
+  }
+  if (typeof state.tp2Done !== 'boolean') {
+    state.tp2Done = false;
   }
   if (typeof state.trailPeak !== 'number') {
     state.trailPeak = 0;
@@ -639,7 +714,6 @@ function ensureState(gb) {
     state.lastNotificationPruneAt = 0;
   }
 
-  gb.data.pairLedger = pairLedger;
   return state;
 }
 
@@ -973,6 +1047,7 @@ function analyzeFrame(gb, config, state, hasBag) {
   var entryTarget;
   var stopPrice;
   var tp1Price;
+  var tp2Price;
   var reloadTarget;
   var trailTriggerPrice;
   var currentPeriodMinutes;
@@ -1121,6 +1196,7 @@ function analyzeFrame(gb, config, state, hasBag) {
     stopPrice = bid * (1 - (config.exits.hardStopPct / 100));
   }
   tp1Price = (safeNumber(gb.data.breakEven, 0) > 0 ? safeNumber(gb.data.breakEven, 0) : bid) * (1 + (config.exits.tp1Pct / 100));
+  tp2Price = (safeNumber(gb.data.breakEven, 0) > 0 ? safeNumber(gb.data.breakEven, 0) : bid) * (1 + (config.exits.tp2Pct / 100));
   trailTriggerPrice = (safeNumber(gb.data.breakEven, 0) > 0 ? safeNumber(gb.data.breakEven, 0) : bid) * (1 + (config.exits.trailTriggerPct / 100));
   reloadTarget = state.lastFillPrice > 0
     ? state.lastFillPrice * (1 - (config.reload.minDistancePct / 100))
@@ -1185,6 +1261,7 @@ function analyzeFrame(gb, config, state, hasBag) {
     entryTarget: entryTarget,
     stopPrice: stopPrice,
     tp1Price: tp1Price,
+    tp2Price: tp2Price,
     trailTriggerPrice: trailTriggerPrice,
     reloadTarget: reloadTarget,
     lastTimestamp: timestamp.length ? timestamp[timestamp.length - 1] : 0
@@ -1288,7 +1365,7 @@ function updateBagRecovery(gb, state, hasBag) {
       state.entryTime = recoveredEntryTime;
     }
     if (state.phase === 'flat' || state.phase === 'cooldown') {
-      state.phase = state.tp1Done ? 'runner' : 'bag';
+      state.phase = state.tp2Done ? 'runner' : (state.tp1Done ? 'partial' : 'bag');
     }
   }
 }
@@ -1337,8 +1414,14 @@ function buildSkipReason(runtime, frameMetrics, hasBag, hasOpenOrders, buyEnable
   return 'entry-ready';
 }
 
-function determineSetupStage(frameMetrics, hasBag, compositeScore, config) {
+function determineSetupStage(frameMetrics, hasBag, compositeScore, config, state) {
   if (hasBag) {
+    if (state && state.tp2Done) {
+      return frameMetrics.trend.ok ? 'runner-manage' : 'runner-risk';
+    }
+    if (state && state.tp1Done) {
+      return frameMetrics.trend.ok ? 'partial-manage' : 'partial-risk';
+    }
     return frameMetrics.trend.ok ? 'bag-manage' : 'bag-risk';
   }
   if (!frameMetrics.trend.ok) {
@@ -1363,7 +1446,7 @@ function determineSetupStage(frameMetrics, hasBag, compositeScore, config) {
 }
 
 function updateTrailingState(state, frameMetrics, breakEven, config) {
-  if (!state.tp1Done) {
+  if (!state.tp2Done) {
     state.trailPeak = 0;
     state.trailStop = 0;
     return;
@@ -1379,6 +1462,32 @@ function updateTrailingState(state, frameMetrics, breakEven, config) {
       state.trailStop = Math.max(state.trailStop, breakEven);
     }
   }
+}
+
+function shouldTriggerMomentumExit(runtime, frameMetrics, config, state, ageMinutes) {
+  var minAgeMinutes = Math.max(
+    safeNumber(config.exits.momentumExitMinMinutes, 0),
+    safeNumber(frameMetrics.currentPeriodMinutes, 0)
+  );
+
+  if (runtime.postEntryGraceActive || state.tp1Done) {
+    return false;
+  }
+  if (ageMinutes < minAgeMinutes) {
+    return false;
+  }
+  if (frameMetrics.trend.ok) {
+    return false;
+  }
+
+  if (frameMetrics.momentum.ok && frameMetrics.confirm.ok && frameMetrics.bid > frameMetrics.entryTarget) {
+    return false;
+  }
+
+  return frameMetrics.rsi <= config.exits.momentumExitRsi ||
+    !frameMetrics.momentum.ok ||
+    !frameMetrics.confirm.ok ||
+    frameMetrics.bid <= frameMetrics.entryTarget;
 }
 
 function createNotification(text, variant, persist) {
@@ -1450,7 +1559,13 @@ function phaseName(state, hasBag, setupArmed, reentryCooldownActive) {
     return 'entry-pending';
   }
   if (hasBag) {
-    return state.tp1Done ? 'runner' : 'bag';
+    if (state.tp2Done) {
+      return 'runner';
+    }
+    if (state.tp1Done) {
+      return 'partial';
+    }
+    return 'bag';
   }
   if (reentryCooldownActive) {
     return 'cooldown';
@@ -1459,6 +1574,97 @@ function phaseName(state, hasBag, setupArmed, reentryCooldownActive) {
     return 'armed';
   }
   return 'flat';
+}
+
+function reloadLimitText(config) {
+  if (config.reload.unlimitedCount) {
+    return 'unl';
+  }
+  return String(config.reload.maxCount);
+}
+
+function hasReloadCapacity(config, state) {
+  if (config.reload.unlimitedCount) {
+    return true;
+  }
+  return state.reloadCount < config.reload.maxCount;
+}
+
+function withinReloadDepthLimit(config, pnlPct) {
+  if (config.reload.maxDepthFromBreakEvenPct <= 0) {
+    return true;
+  }
+  return pnlPct >= (config.reload.maxDepthFromBreakEvenPct * -1);
+}
+
+function belowBreakEvenReloadAllowed(referencePrice, bid, enabled, bufferPct) {
+  if (!enabled || referencePrice <= 0) {
+    return true;
+  }
+  return bid <= (referencePrice * (1 - (bufferPct / 100)));
+}
+
+function configuredBagBaseLimit(gb, config) {
+  var explicitBase = Math.max(0, safeNumber(config && config.reload ? config.reload.maxBagBase : 0, 0));
+  var tradingLimit = Math.max(0, safeNumber(activeOverrides(gb).TRADING_LIMIT, 0));
+  var pctLimit = Math.max(0, safeNumber(config && config.reload ? config.reload.maxBagPctOfTradingLimit : 0, 0));
+
+  if (explicitBase > 0) {
+    return explicitBase;
+  }
+  if (pctLimit > 0 && tradingLimit > 0) {
+    return tradingLimit * (pctLimit / 100);
+  }
+  return 0;
+}
+
+function currentBagBaseExposure(gb, frameMetrics, fallbackPrice) {
+  var quoteBalance = Math.max(0, safeNumber(gb && gb.data ? gb.data.quoteBalance : 0, 0));
+  var breakEven = Math.max(0, safeNumber(gb && gb.data ? gb.data.BEP : 0, 0), safeNumber(gb && gb.data ? gb.data.breakEven : 0, 0));
+  var price = breakEven > 0
+    ? breakEven
+    : Math.max(
+      0,
+      safeNumber(fallbackPrice, 0),
+      safeNumber(frameMetrics && frameMetrics.bid, 0),
+      safeNumber(frameMetrics && frameMetrics.ask, 0)
+    );
+
+  return quoteAmountToBaseValue(quoteBalance, price);
+}
+
+function withinBagBaseLimit(gb, config, frameMetrics, plannedQuoteAmount) {
+  var limit = configuredBagBaseLimit(gb, config);
+  var projectedBaseValue;
+
+  if (limit <= 0) {
+    return true;
+  }
+
+  projectedBaseValue = currentBagBaseExposure(gb, frameMetrics, buyReferencePrice(frameMetrics)) +
+    quoteAmountToBaseValue(plannedQuoteAmount, buyReferencePrice(frameMetrics));
+
+  return projectedBaseValue <= (limit + 0.00000001);
+}
+
+function nextTakeProfitPrice(frameMetrics, state) {
+  if (state.tp2Done) {
+    return 0;
+  }
+  if (state.tp1Done) {
+    return frameMetrics.tp2Price;
+  }
+  return frameMetrics.tp1Price;
+}
+
+function nextTakeProfitLabel(state) {
+  if (state.tp2Done) {
+    return 'Kestrel Runner';
+  }
+  if (state.tp1Done) {
+    return 'Kestrel TP2';
+  }
+  return 'Kestrel TP1';
 }
 
 function buildCycleSummaryKey(frameMetrics, state, hasBag, setupArmed, skipReason, compositeScore, reentryCooldownActive, stage) {
@@ -1472,11 +1678,13 @@ function buildCycleSummaryKey(frameMetrics, state, hasBag, setupArmed, skipReaso
     compositeScore,
     state.reloadCount,
     state.tp1Done ? 1 : 0,
+    state.tp2Done ? 1 : 0,
     roundTo(safeNumber(state.trailStop, 0), 6)
   ].join('|');
 }
 
 function buildCycleSummaryLine(gb, config, frameMetrics, state, hasBag, setupArmed, skipReason, compositeScore, reentryCooldownActive, stage) {
+  var nextTakePrice = nextTakeProfitPrice(frameMetrics, state);
   return [
     'tf=' + String(frameMetrics.currentPeriodMinutes) + 'm',
     'bid=' + formatPrice(frameMetrics.bid),
@@ -1494,8 +1702,9 @@ function buildCycleSummaryLine(gb, config, frameMetrics, state, hasBag, setupArm
     'relvol=' + roundTo(frameMetrics.liquidity.relativeVolume, 2).toFixed(2) + 'x',
     'pull=' + formatPercent(frameMetrics.pullbackPct),
     'rsi=' + roundTo(frameMetrics.rsi, 1).toFixed(1),
-    'reload=' + String(state.reloadCount) + '/' + String(config.reload.maxCount),
-    'stop=' + formatPrice(frameMetrics.stopPrice)
+    'reload=' + String(state.reloadCount) + '/' + reloadLimitText(config),
+    'take=' + (nextTakePrice > 0 ? formatPrice(nextTakePrice) : '--'),
+    (config.exits.profitOnlyExits ? 'risk=' : 'stop=') + formatPrice(frameMetrics.stopPrice)
   ].join(' ');
 }
 
@@ -1599,6 +1808,8 @@ function setChartObjects(gb, config, state, frameMetrics, hasBag, stage) {
   var riskTop = Math.max(frameMetrics.entryTarget, entryPrice, frameMetrics.bid);
   var window = buildShapeWindow(frameMetrics, 3, 2);
   var target;
+  var nextTakePrice = nextTakeProfitPrice(frameMetrics, state);
+  var nextTakeLabel = nextTakeProfitLabel(state);
 
   if (!config.visuals.enableCharts) {
     clearChartObjects(gb);
@@ -1606,11 +1817,11 @@ function setChartObjects(gb, config, state, frameMetrics, hasBag, stage) {
   }
 
   ledger.customBuyTarget = hasBag ? null : frameMetrics.entryTarget;
-  ledger.customSellTarget = frameMetrics.tp1Price;
+  ledger.customSellTarget = nextTakePrice || null;
   ledger.customStopTarget = frameMetrics.stopPrice;
-  ledger.customCloseTarget = hasBag && state.tp1Done && state.trailStop > 0 ? state.trailStop : null;
-  ledger.customTrailingTarget = state.tp1Done ? state.trailStop : null;
-  ledger.customDcaTarget = hasBag && config.reload.maxCount > 0 ? frameMetrics.reloadTarget : null;
+  ledger.customCloseTarget = hasBag && state.tp2Done && state.trailStop > 0 ? state.trailStop : null;
+  ledger.customTrailingTarget = state.tp2Done ? state.trailStop : null;
+  ledger.customDcaTarget = hasBag ? frameMetrics.reloadTarget : null;
 
   target = createChartTarget('Kestrel Fast EMA', frameMetrics.fast, '', 1, 1, KESTREL_COLORS.info, '#0f1a2b');
   if (target) {
@@ -1625,22 +1836,34 @@ function setChartObjects(gb, config, state, frameMetrics, hasBag, stage) {
     if (target) {
       targets.push(target);
     }
+    if (safeNumber(gb.data.BEP, 0) > 0) {
+      target = createChartTarget('Kestrel BEP', gb.data.BEP, '', 1, 1, KESTREL_COLORS.info, '#000000');
+      if (target) {
+        targets.push(target);
+      }
+    }
   }
-  target = createChartTarget(hasBag ? 'Kestrel TP1' : 'Kestrel Buy Watch', hasBag ? frameMetrics.tp1Price : frameMetrics.entryTarget, '', 0, 2, hasBag ? KESTREL_COLORS.good : KESTREL_COLORS.warn, '#122018');
+  target = createChartTarget(hasBag ? nextTakeLabel : 'Kestrel Buy Watch', hasBag ? nextTakePrice : frameMetrics.entryTarget, '', 0, 2, hasBag ? KESTREL_COLORS.good : KESTREL_COLORS.warn, '#122018');
   if (target) {
     targets.push(target);
   }
-  target = createChartTarget('Kestrel Stop', frameMetrics.stopPrice, '', 2, 1, KESTREL_COLORS.bad, '#2b1111');
+  if (!hasBag) {
+    target = createChartTarget('Kestrel TP2 Preview', frameMetrics.tp2Price, '', 1, 1, KESTREL_COLORS.info, '#0f1a2b');
+    if (target) {
+      targets.push(target);
+    }
+  }
+  target = createChartTarget(config.exits.profitOnlyExits ? 'Kestrel Structural Risk' : 'Kestrel Stop', frameMetrics.stopPrice, '', 2, 1, KESTREL_COLORS.bad, '#2b1111');
   if (target) {
     targets.push(target);
   }
-  if (state.tp1Done && state.trailStop > 0) {
+  if (state.tp2Done && state.trailStop > 0) {
     target = createChartTarget('Kestrel Trail', state.trailStop, '', 0, 2, KESTREL_COLORS.good, '#122018');
     if (target) {
       targets.push(target);
     }
   }
-  if (hasBag && config.reload.maxCount > 0) {
+  if (hasBag) {
     target = createChartTarget('Kestrel Reload', frameMetrics.reloadTarget, '', 1, 1, KESTREL_COLORS.warn, '#2b2110');
     if (target) {
       targets.push(target);
@@ -1664,6 +1887,7 @@ function setChartObjects(gb, config, state, frameMetrics, hasBag, stage) {
 }
 
 function updateSidebar(gb, config, frameMetrics, state, runtime, hasBag, setupArmed, skipReason, compositeScore, stage) {
+  var nextTakePrice = nextTakeProfitPrice(frameMetrics, state);
   gb.data.pairLedger.sidebarExtras = [
     { label: 'Kestrel', value: KESTREL_META.version, valueColor: KESTREL_COLORS.info },
     { label: 'Trend', value: frameMetrics.trend.ok ? 'ON' : 'OFF', valueColor: frameMetrics.trend.ok ? KESTREL_COLORS.good : KESTREL_COLORS.bad },
@@ -1671,9 +1895,11 @@ function updateSidebar(gb, config, frameMetrics, state, runtime, hasBag, setupAr
     { label: 'Stage', value: stage, valueColor: KESTREL_COLORS.neutral },
     { label: 'Setup', value: setupArmed ? 'ARMED' : 'IDLE', valueColor: setupArmed ? KESTREL_COLORS.good : KESTREL_COLORS.neutral },
     { label: 'Phase', value: phaseName(state, hasBag, setupArmed, runtime.reentryCooldownActive), valueColor: hasBag ? KESTREL_COLORS.good : KESTREL_COLORS.neutral },
-    { label: 'Reload', value: String(state.reloadCount) + '/' + String(config.reload.maxCount), valueColor: KESTREL_COLORS.neutral },
-    { label: 'Trail', value: state.trailStop > 0 ? formatPrice(state.trailStop) : '--', valueColor: state.trailStop > 0 ? KESTREL_COLORS.good : KESTREL_COLORS.neutral },
-    { label: 'Stop', value: formatPrice(frameMetrics.stopPrice), valueColor: KESTREL_COLORS.bad },
+    { label: 'Reload', value: String(state.reloadCount) + '/' + reloadLimitText(config), valueColor: KESTREL_COLORS.neutral },
+    { label: 'Take', value: hasBag ? (nextTakePrice > 0 ? formatPrice(nextTakePrice) : '--') : formatPrice(frameMetrics.tp1Price), valueColor: hasBag && nextTakePrice > 0 ? KESTREL_COLORS.good : KESTREL_COLORS.neutral },
+    { label: 'Trail', value: state.tp2Done && state.trailStop > 0 ? formatPrice(state.trailStop) : '--', valueColor: state.tp2Done && state.trailStop > 0 ? KESTREL_COLORS.good : KESTREL_COLORS.neutral },
+    { label: 'BEP', value: hasBag && safeNumber(gb.data.BEP, 0) > 0 ? formatPrice(gb.data.BEP) : '--', valueColor: hasBag && safeNumber(gb.data.BEP, 0) > 0 ? KESTREL_COLORS.info : KESTREL_COLORS.neutral },
+    { label: config.exits.profitOnlyExits ? 'Risk' : 'Stop', value: formatPrice(frameMetrics.stopPrice), valueColor: KESTREL_COLORS.bad },
     { label: 'Spread', value: formatPercent(frameMetrics.liquidity.spreadPct), valueColor: frameMetrics.liquidity.ok ? KESTREL_COLORS.good : KESTREL_COLORS.bad },
     { label: 'RSI', value: roundTo(frameMetrics.rsi, 1).toFixed(1), valueColor: frameMetrics.momentum.ok ? KESTREL_COLORS.good : KESTREL_COLORS.warn },
     { label: 'Skip', value: skipReason, valueColor: skipReason === 'entry-ready' ? KESTREL_COLORS.good : KESTREL_COLORS.warn }
@@ -1713,11 +1939,16 @@ async function executeBuy(gb, config, state, amountQuote, label, compositeScore,
     state.entryTime = Date.now();
     state.reloadCount = 0;
     state.tp1Done = false;
+    state.tp2Done = false;
     state.trailPeak = 0;
     state.trailStop = 0;
     state.phase = 'entry-pending';
   } else {
     state.reloadCount += 1;
+    state.tp1Done = false;
+    state.tp2Done = false;
+    state.trailPeak = 0;
+    state.trailStop = 0;
     state.phase = 'bag';
   }
 
@@ -1756,6 +1987,13 @@ async function executeSell(gb, state, amountQuote, label, frameMetrics) {
 
   if (label === 'tp1') {
     state.tp1Done = true;
+    state.tp2Done = false;
+    state.phase = 'partial';
+    state.trailPeak = 0;
+    state.trailStop = 0;
+  } else if (label === 'tp2') {
+    state.tp1Done = true;
+    state.tp2Done = true;
     state.phase = 'runner';
     state.trailPeak = Math.max(frameMetrics.bid, state.trailPeak || 0);
   } else {
@@ -1771,6 +2009,7 @@ function clearBagState(state, config) {
   state.phase = 'cooldown';
   state.reloadCount = 0;
   state.tp1Done = false;
+  state.tp2Done = false;
   state.trailPeak = 0;
   state.trailStop = 0;
   state.lastFillPrice = 0;
@@ -1801,6 +2040,7 @@ async function runKestrelStrategy(gb) {
   var sellAmount;
   var pnlPct;
   var ageMinutes;
+  var reloadReferencePrice;
 
   pruneNotificationKeys(state, config, runtime.now);
   runtime.actionCooldownActive = (runtime.now - safeNumber(state.lastActionAt, 0)) < (config.capital.actionCooldownSeconds * 1000);
@@ -1861,7 +2101,7 @@ async function runKestrelStrategy(gb) {
     frameMetrics.pullback.ok &&
     frameMetrics.liquidity.ok &&
     compositeScore >= Math.max(1, config.risk.minEntryScore - 1);
-  stage = determineSetupStage(frameMetrics, hasBag, compositeScore, config);
+  stage = determineSetupStage(frameMetrics, hasBag, compositeScore, config, state);
   breakEven = safeNumber(gb.data.breakEven, 0);
 
   updateTrailingState(state, frameMetrics, breakEven, config);
@@ -1880,7 +2120,7 @@ async function runKestrelStrategy(gb) {
   }
 
   if (hasBag && !state.lastActionLabel) {
-    state.phase = state.tp1Done ? 'runner' : 'bag';
+    state.phase = state.tp2Done ? 'runner' : (state.tp1Done ? 'partial' : 'bag');
   }
   if (state.phase === 'entry-pending' && hasBag) {
     state.phase = 'bag';
@@ -1920,64 +2160,77 @@ async function runKestrelStrategy(gb) {
     state.phase = 'flat';
   }
 
-  if (hasBag && !hasOpenOrders && skipReason === 'manage-bag' && sellEnabled) {
+  if (hasBag && !hasOpenOrders && skipReason === 'manage-bag') {
     pnlPct = breakEven > 0 ? percentChange(breakEven, frameMetrics.bid) : 0;
     ageMinutes = state.entryTime > 0 ? ((runtime.now - state.entryTime) / 60000) : 0;
 
-    if (!state.tp1Done && frameMetrics.bid >= frameMetrics.tp1Price) {
+    if (sellEnabled && !state.tp1Done && frameMetrics.bid >= frameMetrics.tp1Price) {
       sellAmount = normalizedSellAmount(gb, safeNumber(gb.data.quoteBalance, 0) * config.exits.tp1SellRatio, true);
       if (sellAmount > 0 && await executeSell(gb, state, sellAmount, 'tp1', frameMetrics)) {
-        sendNotification(gb, config, state, 'tp1-' + String(Date.now()), createNotification('Kestrel TP1 executed on ' + gb.data.pairName + '.', 'success', false));
+        sendNotification(gb, config, state, 'tp1-' + String(Date.now()), createNotification('Kestrel TP1 executed on ' + gb.data.pairName + '. Next target moved to TP2 at ' + formatPrice(frameMetrics.tp2Price) + '.', 'success', false));
       }
-    } else if (state.tp1Done && state.trailStop > 0 && frameMetrics.bid <= state.trailStop) {
+    } else if (sellEnabled && state.tp1Done && !state.tp2Done && frameMetrics.bid >= frameMetrics.tp2Price) {
+      sellAmount = normalizedSellAmount(gb, safeNumber(gb.data.quoteBalance, 0) * config.exits.tp2SellRatio, true);
+      if (sellAmount > 0 && await executeSell(gb, state, sellAmount, 'tp2', frameMetrics)) {
+        sendNotification(gb, config, state, 'tp2-' + String(Date.now()), createNotification('Kestrel TP2 executed on ' + gb.data.pairName + '. Runner trail is now active.', 'success', false));
+      }
+    } else if (sellEnabled && state.tp2Done && state.trailStop > 0 && frameMetrics.bid <= state.trailStop) {
       sellAmount = normalizedSellAmount(gb, safeNumber(gb.data.quoteBalance, 0), true);
       if (sellAmount > 0 && await executeSell(gb, state, sellAmount, 'trail-exit', frameMetrics)) {
         sendNotification(gb, config, state, 'trail-exit-' + String(Date.now()), createNotification('Kestrel runner trail exit on ' + gb.data.pairName + '.', 'success', false));
         clearBagState(state, config);
       }
-    } else if (frameMetrics.bid <= frameMetrics.stopPrice) {
+    } else if (sellEnabled && !config.exits.profitOnlyExits && frameMetrics.bid <= frameMetrics.stopPrice) {
       sellAmount = normalizedSellAmount(gb, safeNumber(gb.data.quoteBalance, 0), true);
       if (sellAmount > 0 && await executeSell(gb, state, sellAmount, 'stop-exit', frameMetrics)) {
         sendNotification(gb, config, state, 'stop-exit-' + String(Date.now()), createNotification('Kestrel stop exit on ' + gb.data.pairName + '.', 'warning', false));
         clearBagState(state, config);
       }
-    } else if (!runtime.postEntryGraceActive && (frameMetrics.rsi <= config.exits.momentumExitRsi || frameMetrics.fast < frameMetrics.slow)) {
+    } else if (sellEnabled && !config.exits.profitOnlyExits && shouldTriggerMomentumExit(runtime, frameMetrics, config, state, ageMinutes)) {
       sellAmount = normalizedSellAmount(gb, safeNumber(gb.data.quoteBalance, 0), true);
       if (sellAmount > 0 && await executeSell(gb, state, sellAmount, 'momentum-exit', frameMetrics)) {
         sendNotification(gb, config, state, 'momentum-exit-' + String(Date.now()), createNotification('Kestrel momentum exit on ' + gb.data.pairName + '.', 'warning', false));
         clearBagState(state, config);
       }
-    } else if (!runtime.postEntryGraceActive && !state.tp1Done && ageMinutes >= config.exits.timeStopMinutes && pnlPct <= config.exits.timeStopMaxProfitPct) {
+    } else if (sellEnabled && !config.exits.profitOnlyExits && !runtime.postEntryGraceActive && !state.tp1Done && ageMinutes >= config.exits.timeStopMinutes && pnlPct <= config.exits.timeStopMaxProfitPct) {
       sellAmount = normalizedSellAmount(gb, safeNumber(gb.data.quoteBalance, 0), true);
       if (sellAmount > 0 && await executeSell(gb, state, sellAmount, 'time-stop', frameMetrics)) {
         sendNotification(gb, config, state, 'time-stop-' + String(Date.now()), createNotification('Kestrel time stop exit on ' + gb.data.pairName + '.', 'warning', false));
         clearBagState(state, config);
       }
+    } else if (buyEnabled && !runtime.actionCooldownActive && !runtime.reentryCooldownActive && hasReloadCapacity(config, state)) {
+      reloadAmount = config.capital.tradeLimitBase / buyReferencePrice(frameMetrics);
+      reloadReferencePrice = breakEven > 0 ? breakEven : safeNumber(state.lastFillPrice, 0);
+      if (
+        frameMetrics.bid <= frameMetrics.reloadTarget &&
+        frameMetrics.pullback.ok &&
+        frameMetrics.liquidity.ok &&
+        frameMetrics.confirm.ok &&
+        (!config.reload.requireTrend || frameMetrics.trend.ok) &&
+        belowBreakEvenReloadAllowed(
+          reloadReferencePrice,
+          frameMetrics.bid,
+          config.reload.belowBreakEvenOnly,
+          config.reload.belowBreakEvenBufferPct
+        ) &&
+        withinBagBaseLimit(gb, config, frameMetrics, reloadAmount) &&
+        availableBase >= config.capital.tradeLimitBase &&
+        withinReloadDepthLimit(config, pnlPct)
+      ) {
+        if (await executeBuy(gb, config, state, reloadAmount, 'reload', compositeScore, frameMetrics)) {
+          sendNotification(gb, config, state, 'reload-' + String(state.reloadCount) + '-' + String(Date.now()), createNotification('Kestrel reload executed on ' + gb.data.pairName + '.', 'warning', false));
+        }
+      }
     }
   } else if (!hasBag && !hasOpenOrders && skipReason === 'entry-ready') {
     requestedBuyAmount = config.capital.tradeLimitBase / buyReferencePrice(frameMetrics);
-    if (await executeBuy(gb, config, state, requestedBuyAmount, 'entry', compositeScore, frameMetrics)) {
+    if (withinBagBaseLimit(gb, config, frameMetrics, requestedBuyAmount) &&
+      (await executeBuy(gb, config, state, requestedBuyAmount, 'entry', compositeScore, frameMetrics))) {
       sendNotification(gb, config, state, 'entry-' + String(Date.now()), createNotification('Kestrel entry executed on ' + gb.data.pairName + ' at approx ' + formatPrice(frameMetrics.bid) + '.', 'success', false));
-    }
-  } else if (hasBag && !hasOpenOrders && buyEnabled && !runtime.actionCooldownActive && !runtime.reentryCooldownActive && state.reloadCount < config.reload.maxCount) {
-    reloadAmount = config.capital.tradeLimitBase / buyReferencePrice(frameMetrics);
-    pnlPct = breakEven > 0 ? percentChange(breakEven, frameMetrics.bid) : 0;
-    if (
-      frameMetrics.bid <= frameMetrics.reloadTarget &&
-      frameMetrics.pullback.ok &&
-      frameMetrics.liquidity.ok &&
-      frameMetrics.confirm.ok &&
-      (!config.reload.requireTrend || frameMetrics.trend.ok) &&
-      availableBase >= config.capital.tradeLimitBase &&
-      pnlPct > -1.5
-    ) {
-      if (await executeBuy(gb, config, state, reloadAmount, 'reload', compositeScore, frameMetrics)) {
-        sendNotification(gb, config, state, 'reload-' + String(state.reloadCount) + '-' + String(Date.now()), createNotification('Kestrel reload executed on ' + gb.data.pairName + '.', 'warning', false));
-      }
     }
   }
 
-  if (!hasBag && state.phase === 'bag') {
+  if (!hasBag && (state.phase === 'bag' || state.phase === 'partial' || state.phase === 'runner')) {
     clearBagState(state, config);
   }
 

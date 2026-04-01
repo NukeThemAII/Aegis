@@ -1,7 +1,7 @@
 /*
  * Aegis Regime Reclaim
- * Version: 1.3.7
- * Updated: 2026-03-29
+ * Version: 1.5.1
+ * Updated: 2026-04-01
  *
  * Premium single-file Gunbot custom strategy.
  * Spot only. Long only.
@@ -9,8 +9,8 @@
 
 var AEGIS_META = {
   name: 'Aegis Regime Reclaim',
-  version: '1.3.7',
-  updated: '2026-03-29'
+  version: '1.5.1',
+  updated: '2026-04-01'
 };
 
 var AEGIS_COLORS = {
@@ -85,12 +85,19 @@ var AEGIS_BASE_CONFIG = {
     maxCount: 2,
     minDistancePct: 1.75,
     sizeMultiplier: 1.0,
-    maxDepthFromBreakEvenPct: 6.0,
-    requireReclaim: true
+    maxDepthFromBreakEvenPct: 0,
+    requireReclaim: true,
+    unlimitedCount: true,
+    belowBreakEvenOnly: true,
+    belowBreakEvenBufferPct: 0,
+    maxBagBase: 0,
+    maxBagPctOfTradingLimit: 0
   },
   exits: {
     tp1Pct: 1.6,
     tp1SellRatio: 0.50,
+    tp2Pct: 3.2,
+    tp2SellRatio: 0.50,
     runnerTrailMinPct: 0.90,
     runnerTrailMaxPct: 2.40,
     runnerTrailAtrMult: 1.60,
@@ -98,7 +105,8 @@ var AEGIS_BASE_CONFIG = {
     invalidationLookback: 8,
     invalidationBufferPct: 0.15,
     staleMinutes: 720,
-    staleMaxProfitPct: 0.35
+    staleMaxProfitPct: 0.35,
+    profitOnlyExits: true
   },
   visuals: {
     enableCharts: true,
@@ -123,6 +131,7 @@ function applyRiskProfile(config) {
     config.dca.maxCount = 1;
     config.dca.minDistancePct = 2.2;
     config.exits.tp1Pct = 1.3;
+    config.exits.tp2Pct = 2.4;
     config.exits.runnerTrailMinPct = 0.80;
     config.exits.runnerTrailMaxPct = 1.80;
     config.exits.staleMinutes = 540;
@@ -139,6 +148,7 @@ function applyRiskProfile(config) {
     config.dca.maxCount = 3;
     config.dca.minDistancePct = 1.25;
     config.exits.tp1Pct = 2.0;
+    config.exits.tp2Pct = 4.0;
     config.exits.runnerTrailMinPct = 1.10;
     config.exits.runnerTrailMaxPct = 3.10;
     config.exits.staleMinutes = 960;
@@ -489,9 +499,36 @@ function buildConfig(gb) {
     config.dca.maxDepthFromBreakEvenPct
   );
   config.dca.requireReclaim = readFirstBoolean(overrides, ['DCA_REQUIRE_RECLAIM'], config.dca.requireReclaim);
+  config.dca.unlimitedCount = readFirstBoolean(
+    overrides,
+    ['AEGIS_UNLIMITED_DCA', 'UNLIMITED_DCA'],
+    config.dca.unlimitedCount
+  );
+  config.dca.belowBreakEvenOnly = readFirstBoolean(
+    overrides,
+    ['AEGIS_DCA_BELOW_BREAK_EVEN_ONLY', 'DCA_BELOW_BREAK_EVEN_ONLY'],
+    config.dca.belowBreakEvenOnly
+  );
+  config.dca.belowBreakEvenBufferPct = readFirstNumber(
+    overrides,
+    ['AEGIS_DCA_BELOW_BREAK_EVEN_BUFFER_PCT', 'DCA_BELOW_BREAK_EVEN_BUFFER_PCT'],
+    config.dca.belowBreakEvenBufferPct
+  );
+  config.dca.maxBagBase = readFirstNumber(
+    overrides,
+    ['AEGIS_MAX_BAG_BASE', 'MAX_BAG_BASE'],
+    config.dca.maxBagBase
+  );
+  config.dca.maxBagPctOfTradingLimit = readFirstNumber(
+    overrides,
+    ['AEGIS_MAX_BAG_PCT_OF_TRADING_LIMIT', 'MAX_BAG_PCT_OF_TRADING_LIMIT'],
+    config.dca.maxBagPctOfTradingLimit
+  );
 
   config.exits.tp1Pct = readFirstNumber(overrides, ['TP1_PCT'], config.exits.tp1Pct);
   config.exits.tp1SellRatio = readFirstNumber(overrides, ['TP1_SELL_RATIO'], config.exits.tp1SellRatio);
+  config.exits.tp2Pct = readFirstNumber(overrides, ['TP2_PCT'], config.exits.tp2Pct);
+  config.exits.tp2SellRatio = readFirstNumber(overrides, ['TP2_SELL_RATIO'], config.exits.tp2SellRatio);
   config.exits.runnerTrailMinPct = readFirstNumber(overrides, ['RUNNER_TRAIL_MIN_PCT'], config.exits.runnerTrailMinPct);
   config.exits.runnerTrailMaxPct = readFirstNumber(overrides, ['RUNNER_TRAIL_MAX_PCT'], config.exits.runnerTrailMaxPct);
   config.exits.runnerTrailAtrMult = readFirstNumber(overrides, ['RUNNER_TRAIL_ATR_MULT'], config.exits.runnerTrailAtrMult);
@@ -503,6 +540,11 @@ function buildConfig(gb) {
     overrides,
     ['STALE_EXIT_MAX_PROFIT_PCT'],
     config.exits.staleMaxProfitPct
+  );
+  config.exits.profitOnlyExits = readFirstBoolean(
+    overrides,
+    ['AEGIS_PROFIT_ONLY_EXITS', 'PROFIT_ONLY_EXITS'],
+    config.exits.profitOnlyExits
   );
 
   config.visuals.enableCharts = readFirstBoolean(
@@ -550,7 +592,12 @@ function buildConfig(gb) {
   config.risk.closeOnlyEntryProgress = clamp(config.risk.closeOnlyEntryProgress, 0.50, 1.0);
   config.dca.maxCount = Math.max(0, Math.floor(config.dca.maxCount));
   config.dca.sizeMultiplier = clamp(config.dca.sizeMultiplier, 0.25, 3.0);
+  config.dca.belowBreakEvenBufferPct = clamp(config.dca.belowBreakEvenBufferPct, 0, 5.0);
+  config.dca.maxBagBase = Math.max(0, config.dca.maxBagBase);
+  config.dca.maxBagPctOfTradingLimit = clamp(config.dca.maxBagPctOfTradingLimit, 0, 1000);
   config.exits.tp1SellRatio = clamp(config.exits.tp1SellRatio, 0.05, 1.0);
+  config.exits.tp2Pct = Math.max(config.exits.tp1Pct, config.exits.tp2Pct);
+  config.exits.tp2SellRatio = clamp(config.exits.tp2SellRatio, 0.05, 1.0);
 
   return config;
 }
@@ -581,15 +628,22 @@ function isExpectedStrategyFile(gb, expectedName) {
 }
 
 function ensureState(gb) {
-  var pairLedger = gb.data.pairLedger || {};
-  if (!pairLedger.customStratStore || typeof pairLedger.customStratStore !== 'object' || Array.isArray(pairLedger.customStratStore)) {
-    pairLedger.customStratStore = {};
+  if (!gb.data.pairLedger || typeof gb.data.pairLedger !== 'object') {
+    gb.data.pairLedger = {};
   }
-  if (!pairLedger.customStratStore.aegis || typeof pairLedger.customStratStore.aegis !== 'object' || Array.isArray(pairLedger.customStratStore.aegis)) {
-    pairLedger.customStratStore.aegis = {};
+  if (!gb.data.pairLedger.customStratStore || typeof gb.data.pairLedger.customStratStore !== 'object' || Array.isArray(gb.data.pairLedger.customStratStore)) {
+    if (gb.data.customStratStore && typeof gb.data.customStratStore === 'object' && !Array.isArray(gb.data.customStratStore)) {
+      gb.data.pairLedger.customStratStore = gb.data.customStratStore;
+    } else {
+      gb.data.pairLedger.customStratStore = {};
+    }
+  }
+  gb.data.customStratStore = gb.data.pairLedger.customStratStore;
+  if (!gb.data.customStratStore.aegis || typeof gb.data.customStratStore.aegis !== 'object' || Array.isArray(gb.data.customStratStore.aegis)) {
+    gb.data.customStratStore.aegis = {};
   }
 
-  var state = pairLedger.customStratStore.aegis;
+  var state = gb.data.customStratStore.aegis;
   if (!state.notificationKeys || typeof state.notificationKeys !== 'object') {
     state.notificationKeys = {};
   }
@@ -607,6 +661,9 @@ function ensureState(gb) {
   }
   if (typeof state.tp1Done !== 'boolean') {
     state.tp1Done = false;
+  }
+  if (typeof state.tp2Done !== 'boolean') {
+    state.tp2Done = false;
   }
   if (typeof state.trailPeak !== 'number') {
     state.trailPeak = 0;
@@ -699,7 +756,6 @@ function ensureState(gb) {
     state.currentBagRecoveredAt = 0;
   }
 
-  gb.data.pairLedger = pairLedger;
   return state;
 }
 
@@ -1263,6 +1319,7 @@ function analyzeCurrentFrame(gb, config, state, hasBag) {
   var dcaTarget;
   var entryTarget;
   var tp1Price;
+  var tp2Price;
   var trailPct;
   var score;
 
@@ -1398,8 +1455,10 @@ function analyzeCurrentFrame(gb, config, state, hasBag) {
   tp1Price = 0;
   if (hasBag && safeNumber(gb.data.breakEven, 0) > 0) {
     tp1Price = safeNumber(gb.data.breakEven, 0) * (1 + (config.exits.tp1Pct / 100));
+    tp2Price = safeNumber(gb.data.breakEven, 0) * (1 + (config.exits.tp2Pct / 100));
   } else {
     tp1Price = entryTarget * (1 + (config.exits.tp1Pct / 100));
+    tp2Price = entryTarget * (1 + (config.exits.tp2Pct / 100));
   }
   trailPct = atrLast !== null && bid > 0
     ? clamp((atrLast / bid) * 100 * config.exits.runnerTrailAtrMult, config.exits.runnerTrailMinPct, config.exits.runnerTrailMaxPct)
@@ -1463,6 +1522,7 @@ function analyzeCurrentFrame(gb, config, state, hasBag) {
     dcaTarget: dcaTarget,
     entryTarget: entryTarget,
     tp1Price: tp1Price,
+    tp2Price: tp2Price,
     trailPct: trailPct,
     score: score,
     scoreMax: 4,
@@ -1688,7 +1748,7 @@ function updateBagRecovery(gb, state, runtime, hasBag) {
       state.initialPositionSize = safeNumber(gb.data.quoteBalance, 0);
     }
     if (state.phase === 'flat' || state.phase === 'cooldown') {
-      state.phase = state.tp1Done ? 'runner' : 'bag';
+      state.phase = state.tp2Done ? 'runner' : (state.tp1Done ? 'partial' : 'bag');
     }
     return;
   }
@@ -1767,7 +1827,13 @@ function maybeClearReset(state, config, regimeMetrics, frameMetrics, compositeSc
 
 function determineSetupStage(config, runtime, regimeMetrics, frameMetrics, hasBag, hasOpenOrders, compositeScore, state) {
   if (hasBag) {
-    return state.tp1Done ? 'runner-manage' : 'bag-manage';
+    if (state.tp2Done) {
+      return 'runner-manage';
+    }
+    if (state.tp1Done) {
+      return 'partial-manage';
+    }
+    return 'bag-manage';
   }
   if (!config.enabled) {
     return 'disabled';
@@ -1818,7 +1884,7 @@ function determineSetupStage(config, runtime, regimeMetrics, frameMetrics, hasBa
 }
 
 function updateTrailingState(state, frameMetrics, breakEven) {
-  if (!state.tp1Done) {
+  if (!state.tp2Done) {
     state.trailPeak = 0;
     state.trailStop = 0;
     return;
@@ -1942,14 +2008,21 @@ async function executeBuy(gb, config, state, amountQuote, label, compositeScore,
     state.entryTime = Date.now();
     state.dcaCount = 0;
     state.tp1Done = false;
+    state.tp2Done = false;
     state.trailPeak = 0;
     state.trailStop = 0;
     state.needsReset = false;
     state.phase = 'entry-pending';
     state.currentBagRecovered = false;
     state.currentBagRecoveredAt = 0;
+    state.initialPositionSize = 0;
   } else if (label === 'dca') {
     state.dcaCount += 1;
+    state.tp1Done = false;
+    state.tp2Done = false;
+    state.trailPeak = 0;
+    state.trailStop = 0;
+    state.initialPositionSize = 0;
     state.phase = 'bag';
   }
 
@@ -2001,6 +2074,13 @@ async function executeSell(gb, state, amountQuote, label, frameMetrics) {
 
   if (label === 'tp1') {
     state.tp1Done = true;
+    state.tp2Done = false;
+    state.phase = 'partial';
+    state.trailPeak = 0;
+    state.trailStop = 0;
+  } else if (label === 'tp2') {
+    state.tp1Done = true;
+    state.tp2Done = true;
     state.phase = 'runner';
     state.trailPeak = Math.max(frameMetrics.bid, state.trailPeak || 0);
   } else {
@@ -2024,6 +2104,7 @@ function clearBagState(state, config, now) {
   var cooldownTarget = effectiveNow + (config.capital.reentryCooldownMinutes * 60 * 1000);
 
   state.tp1Done = false;
+  state.tp2Done = false;
   state.dcaCount = 0;
   state.trailPeak = 0;
   state.trailStop = 0;
@@ -2042,7 +2123,13 @@ function phaseName(state, hasBag, setupArmed, reentryCooldownActive) {
     return 'entry-pending';
   }
   if (hasBag) {
-    return state.tp1Done ? 'runner' : 'bag';
+    if (state.tp2Done) {
+      return 'runner';
+    }
+    if (state.tp1Done) {
+      return 'partial';
+    }
+    return 'bag';
   }
   if (reentryCooldownActive) {
     return 'cooldown';
@@ -2051,6 +2138,97 @@ function phaseName(state, hasBag, setupArmed, reentryCooldownActive) {
     return 'armed';
   }
   return 'flat';
+}
+
+function dcaLimitText(config) {
+  if (config.dca.unlimitedCount) {
+    return 'unl';
+  }
+  return String(config.dca.maxCount);
+}
+
+function hasDcaCapacity(config, state) {
+  if (config.dca.unlimitedCount) {
+    return true;
+  }
+  return state.dcaCount < config.dca.maxCount;
+}
+
+function withinDcaDepthLimit(config, pnlPct) {
+  if (config.dca.maxDepthFromBreakEvenPct <= 0) {
+    return true;
+  }
+  return pnlPct >= (config.dca.maxDepthFromBreakEvenPct * -1);
+}
+
+function belowBreakEvenReloadAllowed(referencePrice, bid, enabled, bufferPct) {
+  if (!enabled || referencePrice <= 0) {
+    return true;
+  }
+  return bid <= (referencePrice * (1 - (bufferPct / 100)));
+}
+
+function configuredBagBaseLimit(gb, config) {
+  var explicitBase = Math.max(0, safeNumber(config && config.dca ? config.dca.maxBagBase : 0, 0));
+  var tradingLimit = Math.max(0, safeNumber(activeOverrides(gb).TRADING_LIMIT, 0));
+  var pctLimit = Math.max(0, safeNumber(config && config.dca ? config.dca.maxBagPctOfTradingLimit : 0, 0));
+
+  if (explicitBase > 0) {
+    return explicitBase;
+  }
+  if (pctLimit > 0 && tradingLimit > 0) {
+    return tradingLimit * (pctLimit / 100);
+  }
+  return 0;
+}
+
+function currentBagBaseExposure(gb, frameMetrics, fallbackPrice) {
+  var quoteBalance = Math.max(0, safeNumber(gb && gb.data ? gb.data.quoteBalance : 0, 0));
+  var breakEven = Math.max(0, safeNumber(gb && gb.data ? gb.data.BEP : 0, 0), safeNumber(gb && gb.data ? gb.data.breakEven : 0, 0));
+  var price = breakEven > 0
+    ? breakEven
+    : Math.max(
+      0,
+      safeNumber(fallbackPrice, 0),
+      safeNumber(frameMetrics && frameMetrics.bid, 0),
+      safeNumber(frameMetrics && frameMetrics.ask, 0)
+    );
+
+  return quoteAmountToBaseValue(quoteBalance, price);
+}
+
+function withinBagBaseLimit(gb, config, frameMetrics, plannedQuoteAmount) {
+  var limit = configuredBagBaseLimit(gb, config);
+  var projectedBaseValue;
+
+  if (limit <= 0) {
+    return true;
+  }
+
+  projectedBaseValue = currentBagBaseExposure(gb, frameMetrics, buyReferencePrice(frameMetrics)) +
+    quoteAmountToBaseValue(plannedQuoteAmount, buyReferencePrice(frameMetrics));
+
+  return projectedBaseValue <= (limit + 0.00000001);
+}
+
+function nextTakeProfitPrice(frameMetrics, state) {
+  if (state.tp2Done) {
+    return 0;
+  }
+  if (state.tp1Done) {
+    return frameMetrics.tp2Price;
+  }
+  return frameMetrics.tp1Price;
+}
+
+function nextTakeProfitLabel(state) {
+  if (state.tp2Done) {
+    return 'Aegis Runner';
+  }
+  if (state.tp1Done) {
+    return 'Aegis TP2';
+  }
+  return 'Aegis TP1';
 }
 
 function buildCycleSummaryKey(regimeMetrics, frameMetrics, state, hasBag, setupArmed, skipReason, compositeScore, reentryCooldownActive, setupStage) {
@@ -2078,6 +2256,7 @@ function buildCycleSummaryKey(regimeMetrics, frameMetrics, state, hasBag, setupA
     compositeScore,
     state.dcaCount,
     state.tp1Done ? 1 : 0,
+    state.tp2Done ? 1 : 0,
     roundTo(safeNumber(state.trailStop, 0), 2)
   ].join('|');
 }
@@ -2093,6 +2272,7 @@ function buildCycleSummaryLine(gb, config, regimeMetrics, frameMetrics, state, h
   var regimeLabel = regimeMetrics && regimeMetrics.ready
     ? ((regimeMetrics.pass ? 'on' : 'off') + '(' + formatScore(regimeMetrics.score, 4) + ')')
     : 'wait';
+  var nextTakePrice = frameMetrics && frameMetrics.ready ? nextTakeProfitPrice(frameMetrics, state) : 0;
   var summary = [
     'tf=' + String(periodMinutes) + 'm',
     'bid=' + formatPrice(bid),
@@ -2113,8 +2293,9 @@ function buildCycleSummaryLine(gb, config, regimeMetrics, frameMetrics, state, h
     summary.push('relvol=' + roundTo(frameMetrics.liquidity.relativeVolume, 2).toFixed(2) + 'x');
     summary.push('pullback=' + formatPercent(frameMetrics.value.pullbackPct));
     summary.push('rsi=' + roundTo(frameMetrics.rsi, 1).toFixed(1));
-    summary.push('dca=' + String(state.dcaCount) + '/' + String(config.dca.maxCount));
-    summary.push('stop=' + formatPrice(frameMetrics.invalidationPrice));
+    summary.push('dca=' + String(state.dcaCount) + '/' + dcaLimitText(config));
+    summary.push('take=' + (nextTakePrice > 0 ? formatPrice(nextTakePrice) : '--'));
+    summary.push((config.exits.profitOnlyExits ? 'risk=' : 'stop=') + formatPrice(frameMetrics.invalidationPrice));
   }
 
   return summary.join(' ');
@@ -2192,24 +2373,31 @@ function createChartTarget(text, price, lineStyle, lineWidth, lineColor, bodyTex
   };
 }
 
-function buildChartTargets(config, hasBag, frameMetrics, state, compositeScore, entryPrice) {
+function buildChartTargets(gb, config, hasBag, frameMetrics, state, compositeScore, entryPrice) {
   var targets = [];
   var stopColor = AEGIS_COLORS.bad;
   var buyColor = AEGIS_COLORS.good;
   var trailColor = AEGIS_COLORS.warn;
   var reclaimColor = frameMetrics.confirm.ok ? buyColor : AEGIS_COLORS.info;
   var buyLabel = compositeScore >= config.risk.minEntryScore ? 'Aegis Buy Ready' : 'Aegis Buy Watch';
+  var nextTakePrice = nextTakeProfitPrice(frameMetrics, state);
+  var nextTakeLabel = nextTakeProfitLabel(state);
 
   if (hasBag) {
     if (entryPrice > 0) {
       targets.push(createChartTarget('Aegis Avg Fill', entryPrice, 1, 1, AEGIS_COLORS.neutral, '#111827'));
     }
-    targets.push(createChartTarget('Aegis TP1', frameMetrics.tp1Price, 0, 1, buyColor, '#122018'));
-    targets.push(createChartTarget('Aegis Invalidation', frameMetrics.invalidationPrice, 2, 1, stopColor, '#2b1111'));
-    if (!state.tp1Done && frameMetrics.dcaTarget > 0) {
+    if (safeNumber(gb.data.BEP, 0) > 0) {
+      targets.push(createChartTarget('Aegis BEP', gb.data.BEP, 1, 1, AEGIS_COLORS.info, '#000000'));
+    }
+    if (nextTakePrice > 0) {
+      targets.push(createChartTarget(nextTakeLabel, nextTakePrice, 0, 1, buyColor, '#122018'));
+    }
+    targets.push(createChartTarget(config.exits.profitOnlyExits ? 'Aegis Structural Risk' : 'Aegis Invalidation', frameMetrics.invalidationPrice, 2, 1, stopColor, '#2b1111'));
+    if (frameMetrics.dcaTarget > 0) {
       targets.push(createChartTarget('Aegis DCA', frameMetrics.dcaTarget, 1, 1, AEGIS_COLORS.info, '#0f1a2b'));
     }
-    if (state.tp1Done && state.trailStop > 0) {
+    if (state.tp2Done && state.trailStop > 0) {
       targets.push(createChartTarget('Aegis Trail', state.trailStop, 0, 2, trailColor, '#2b2110'));
     }
     return targets;
@@ -2227,7 +2415,8 @@ function buildChartTargets(config, hasBag, frameMetrics, state, compositeScore, 
   );
   targets.push(createChartTarget('Aegis Reclaim', frameMetrics.confirm.triggerPrice, 1, 1, reclaimColor, '#0f1a2b'));
   targets.push(createChartTarget('Aegis TP1 Preview', frameMetrics.tp1Price, 1, 1, buyColor, '#122018'));
-  targets.push(createChartTarget('Aegis Stop', frameMetrics.invalidationPrice, 2, 1, stopColor, '#2b1111'));
+  targets.push(createChartTarget('Aegis TP2 Preview', frameMetrics.tp2Price, 1, 1, AEGIS_COLORS.info, '#0f1a2b'));
+  targets.push(createChartTarget(config.exits.profitOnlyExits ? 'Aegis Structural Risk' : 'Aegis Stop', frameMetrics.invalidationPrice, 2, 1, stopColor, '#2b1111'));
   return targets;
 }
 
@@ -2359,12 +2548,12 @@ function updateCharts(gb, config, regimeMetrics, frameMetrics, state, hasBag, se
   gb.data.pairLedger.customDcaTarget = null;
 
   if (hasBag) {
-    gb.data.pairLedger.customSellTarget = frameMetrics.tp1Price;
+    gb.data.pairLedger.customSellTarget = nextTakeProfitPrice(frameMetrics, state) || null;
     gb.data.pairLedger.customStopTarget = frameMetrics.invalidationPrice;
-    gb.data.pairLedger.customCloseTarget = state.tp1Done && state.trailStop > 0 ? state.trailStop : null;
-    gb.data.pairLedger.customDcaTarget = state.tp1Done ? null : frameMetrics.dcaTarget;
-    gb.data.pairLedger.customTrailingTarget = state.tp1Done ? state.trailStop : null;
-    gb.data.pairLedger.customChartTargets = buildChartTargets(config, true, frameMetrics, state, compositeScore, entryPrice);
+    gb.data.pairLedger.customCloseTarget = state.tp2Done && state.trailStop > 0 ? state.trailStop : null;
+    gb.data.pairLedger.customDcaTarget = frameMetrics.dcaTarget;
+    gb.data.pairLedger.customTrailingTarget = state.tp2Done ? state.trailStop : null;
+    gb.data.pairLedger.customChartTargets = buildChartTargets(gb, config, true, frameMetrics, state, compositeScore, entryPrice);
     gb.data.pairLedger.customChartShapes = config.visuals.enableShapes
       ? buildChartShapes(frameMetrics, true, regimeMetrics, setupArmed)
       : [];
@@ -2375,7 +2564,7 @@ function updateCharts(gb, config, regimeMetrics, frameMetrics, state, hasBag, se
     gb.data.pairLedger.customBuyTarget = frameMetrics.entryTarget;
     gb.data.pairLedger.customSellTarget = frameMetrics.tp1Price;
     gb.data.pairLedger.customStopTarget = frameMetrics.invalidationPrice;
-    gb.data.pairLedger.customChartTargets = buildChartTargets(config, false, frameMetrics, state, compositeScore, 0);
+    gb.data.pairLedger.customChartTargets = buildChartTargets(gb, config, false, frameMetrics, state, compositeScore, 0);
     gb.data.pairLedger.customChartShapes = config.visuals.enableShapes
       ? buildChartShapes(frameMetrics, false, regimeMetrics, setupArmed)
       : [];
@@ -2388,6 +2577,9 @@ function updateCharts(gb, config, regimeMetrics, frameMetrics, state, hasBag, se
 function stageColor(stage) {
   if (stage === 'entry-ready' || stage === 'bag-manage') {
     return AEGIS_COLORS.good;
+  }
+  if (stage === 'partial-manage') {
+    return AEGIS_COLORS.info;
   }
   if (stage === 'runner-manage') {
     return AEGIS_COLORS.warn;
@@ -2408,6 +2600,7 @@ function updateSidebar(gb, config, regimeMetrics, frameMetrics, state, runtime, 
   var breakEven = safeNumber(gb.data.breakEven, 0);
   var pnlPct = breakEven > 0 ? percentChange(breakEven, frameMetrics.bid) : 0;
   var ageMinutes = state.entryTime > 0 ? ((Date.now() - state.entryTime) / 60000) : 0;
+  var nextTakePrice = frameMetrics.ready ? nextTakeProfitPrice(frameMetrics, state) : 0;
 
   gb.data.pairLedger.sidebarExtras = [
     {
@@ -2447,20 +2640,26 @@ function updateSidebar(gb, config, regimeMetrics, frameMetrics, state, runtime, 
     },
     {
       label: 'DCA',
-      value: String(state.dcaCount) + '/' + String(config.dca.maxCount),
-      tooltip: 'Executed DCA count against allowed maximum.',
+      value: String(state.dcaCount) + '/' + dcaLimitText(config),
+      tooltip: config.dca.unlimitedCount ? 'Executed DCA count with unlimited add capacity enabled.' : 'Executed DCA count against allowed maximum.',
       valueColor: state.dcaCount > 0 ? AEGIS_COLORS.info : AEGIS_COLORS.neutral
     },
     {
-      label: 'Trail',
-      value: state.tp1Done && state.trailStop > 0 ? formatPrice(state.trailStop) : '--',
-      tooltip: 'Runner trailing stop.',
-      valueColor: state.tp1Done ? AEGIS_COLORS.warn : AEGIS_COLORS.neutral
+      label: 'Take',
+      value: hasBag ? (nextTakePrice > 0 ? formatPrice(nextTakePrice) : '--') : formatPrice(frameMetrics.tp1Price),
+      tooltip: hasBag ? 'Next active partial take-profit target for the current bag.' : 'Preview of the first partial take-profit target.',
+      valueColor: hasBag && nextTakePrice > 0 ? AEGIS_COLORS.good : AEGIS_COLORS.neutral
     },
     {
-      label: 'Stop',
+      label: 'Trail',
+      value: state.tp2Done && state.trailStop > 0 ? formatPrice(state.trailStop) : '--',
+      tooltip: 'Runner trailing stop after TP2 is completed.',
+      valueColor: state.tp2Done ? AEGIS_COLORS.warn : AEGIS_COLORS.neutral
+    },
+    {
+      label: config.exits.profitOnlyExits ? 'Risk' : 'Stop',
       value: frameMetrics.ready ? formatPrice(frameMetrics.invalidationPrice) : '--',
-      tooltip: 'Invalidation level for the current reclaim thesis.',
+      tooltip: config.exits.profitOnlyExits ? 'Structural risk line used for bag context and DCA discipline.' : 'Invalidation level for the current reclaim thesis.',
       valueColor: AEGIS_COLORS.bad
     },
     {
@@ -2468,6 +2667,12 @@ function updateSidebar(gb, config, regimeMetrics, frameMetrics, state, runtime, 
       value: frameMetrics.ready ? formatPercent(frameMetrics.liquidity.spreadPct) : '--',
       tooltip: 'Live bid/ask spread percentage.',
       valueColor: frameMetrics.ready ? (frameMetrics.liquidity.ok ? AEGIS_COLORS.good : AEGIS_COLORS.bad) : AEGIS_COLORS.neutral
+    },
+    {
+      label: 'BEP',
+      value: hasBag && safeNumber(gb.data.BEP, 0) > 0 ? formatPrice(gb.data.BEP) : '--',
+      tooltip: 'Break-Even Price (average buy price) for the current bag.',
+      valueColor: hasBag && safeNumber(gb.data.BEP, 0) > 0 ? AEGIS_COLORS.info : AEGIS_COLORS.neutral
     },
     {
       label: 'Reclaim',
@@ -2539,6 +2744,7 @@ async function runAegis(gb) {
   var sellAmount;
   var staleAgeMinutes;
   var pnlPct;
+  var dcaReferencePrice;
 
   runtime.actionCooldownActive = (runtime.now - safeNumber(state.lastActionAt, 0)) < (config.capital.actionCooldownSeconds * 1000);
   runtime.reentryCooldownActive = runtime.now < safeNumber(state.cooldownUntil, 0);
@@ -2573,6 +2779,9 @@ async function runAegis(gb) {
     }
   }
   maybeBackfillLatestClosedTrade(gb, state, hasBag);
+  if (!hasBag && state.phase === 'cooldown' && !runtime.reentryCooldownActive) {
+    state.phase = 'flat';
+  }
   regimeMetrics = await getHigherTimeframeMetrics(gb, state, config);
   frameMetrics = analyzeCurrentFrame(gb, config, state, hasBag);
 
@@ -2678,7 +2887,8 @@ async function runAegis(gb) {
 
   if (!hasBag && !hasOpenOrders && skipReason === 'entry-ready') {
     requestedBuyAmount = config.capital.tradeLimitBase / buyReferencePrice(frameMetrics);
-    if (await executeBuy(gb, config, state, requestedBuyAmount, 'entry', compositeScore, frameMetrics)) {
+    if (withinBagBaseLimit(gb, config, frameMetrics, requestedBuyAmount) &&
+      (await executeBuy(gb, config, state, requestedBuyAmount, 'entry', compositeScore, frameMetrics))) {
       sendNotification(
         gb,
         config,
@@ -2691,18 +2901,26 @@ async function runAegis(gb) {
         )
       );
     }
-  } else if (hasBag && !hasOpenOrders && buyEnabled && !runtime.actionCooldownActive && !runtime.reentryCooldownActive && !state.tp1Done) {
+  } else if (hasBag && !hasOpenOrders && buyEnabled && !runtime.actionCooldownActive && !runtime.reentryCooldownActive) {
     pnlPct = breakEven > 0 ? percentChange(breakEven, frameMetrics.bid) : 0;
+    dcaReferencePrice = breakEven > 0 ? breakEven : safeNumber(state.lastFillPrice, 0);
     requestedDcaAmount = (config.capital.tradeLimitBase * config.dca.sizeMultiplier) / buyReferencePrice(frameMetrics);
     if (
       regimeMetrics.pass &&
       frameMetrics.liquidity.ok &&
       frameMetrics.value.ok &&
       (!config.dca.requireReclaim || frameMetrics.confirm.ok) &&
-      state.dcaCount < config.dca.maxCount &&
+      hasDcaCapacity(config, state) &&
       frameMetrics.dcaTarget > 0 &&
       frameMetrics.bid <= frameMetrics.dcaTarget &&
-      pnlPct >= (config.dca.maxDepthFromBreakEvenPct * -1) &&
+      withinDcaDepthLimit(config, pnlPct) &&
+      belowBreakEvenReloadAllowed(
+        dcaReferencePrice,
+        frameMetrics.bid,
+        config.dca.belowBreakEvenOnly,
+        config.dca.belowBreakEvenBufferPct
+      ) &&
+      withinBagBaseLimit(gb, config, frameMetrics, requestedDcaAmount) &&
       availableBase >= (config.capital.tradeLimitBase * config.dca.sizeMultiplier) &&
       frameMetrics.bid > frameMetrics.invalidationPrice
     ) {
@@ -2728,7 +2946,7 @@ async function runAegis(gb) {
 
     if (!sellEnabled) {
       logDebug(gb, config, 'sell-disabled', 'Sell exits are disabled by pair settings.');
-    } else if (frameMetrics.bid <= frameMetrics.invalidationPrice && frameMetrics.invalidationPrice > 0) {
+    } else if (!config.exits.profitOnlyExits && frameMetrics.bid <= frameMetrics.invalidationPrice && frameMetrics.invalidationPrice > 0) {
       sellAmount = normalizedSellAmount(gb, safeNumber(gb.data.quoteBalance, 0), true);
       if (sellAmount > 0 && await executeSell(gb, state, sellAmount, 'invalidation', frameMetrics)) {
         captureClosedTradeSnapshot(gb, state, 'invalidation', runtime.now);
@@ -2759,13 +2977,32 @@ async function runAegis(gb) {
           state,
           'tp1-executed-' + String(Date.now()),
           createNotification(
-            'Aegis TP1 taken on ' + gb.data.pairName + '. Runner trail armed at ' + formatPrice(state.trailStop) + '.',
+            'Aegis TP1 taken on ' + gb.data.pairName + '. Next target moved to TP2 at ' + formatPrice(frameMetrics.tp2Price) + '.',
             'success',
             false
           )
         );
       }
-    } else if (state.tp1Done && state.trailStop > 0 && frameMetrics.bid <= state.trailStop) {
+    } else if (state.tp1Done && !state.tp2Done && frameMetrics.bid >= frameMetrics.tp2Price) {
+      sellAmount = normalizedSellAmount(
+        gb,
+        safeNumber(gb.data.quoteBalance, 0) * config.exits.tp2SellRatio,
+        true
+      );
+      if (sellAmount > 0 && await executeSell(gb, state, sellAmount, 'tp2', frameMetrics)) {
+        sendNotification(
+          gb,
+          config,
+          state,
+          'tp2-executed-' + String(Date.now()),
+          createNotification(
+            'Aegis TP2 taken on ' + gb.data.pairName + '. Runner trail is now active.',
+            'success',
+            false
+          )
+        );
+      }
+    } else if (state.tp2Done && state.trailStop > 0 && frameMetrics.bid <= state.trailStop) {
       sellAmount = normalizedSellAmount(gb, safeNumber(gb.data.quoteBalance, 0), true);
       if (sellAmount > 0 && await executeSell(gb, state, sellAmount, 'trail', frameMetrics)) {
         captureClosedTradeSnapshot(gb, state, 'trail', runtime.now);
@@ -2783,7 +3020,7 @@ async function runAegis(gb) {
           )
         );
       }
-    } else if (!state.tp1Done && state.entryTime > 0 && staleAgeMinutes >= config.exits.staleMinutes && pnlPct <= config.exits.staleMaxProfitPct) {
+    } else if (!config.exits.profitOnlyExits && !state.tp1Done && state.entryTime > 0 && staleAgeMinutes >= config.exits.staleMinutes && pnlPct <= config.exits.staleMaxProfitPct) {
       sellAmount = normalizedSellAmount(gb, safeNumber(gb.data.quoteBalance, 0), true);
       if (sellAmount > 0 && await executeSell(gb, state, sellAmount, 'stale', frameMetrics)) {
         captureClosedTradeSnapshot(gb, state, 'stale', runtime.now);

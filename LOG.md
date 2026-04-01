@@ -1,2991 +1,581 @@
-# LOG.md
 
-## 2026-03-28
+## 2026-04-01 05:55 UTC — Heartbeat
 
-### Simulator experiment (PAXG)
+- **Aegis Monitor**: `[2026-04-01T05:59:45.800Z] Aegis monitor | pairs=4 | USDT-PAXG=runner-manage/3/5/in-bag/ok | USDT-BTC=bag-manage/3/5/in-bag | new_states=55 | new_events=0 | alerts=1 ALERT: USDT-BTC regime control pair is now ON. Re-check whether the broader market gate is starting to open.`
+- **Kestrel Monitor**: `Kestrel monitor: pairs=3 new_states=39`
+- **Observation**: The `USDT-BTC` regime control alert persists. `USDT-PAXG` continues in the runner-manage phase. No new errors or concerning transitions.
 
-- Backed up config + docs to:
-  - `/home/xaos/gunbot/backups/aegis-20260328-172443-experiment/`
-- Loosened PAXG reclaim + close-only timing for simulator conversion testing:
-  - `RECLAIM_WICK_RATIO: 0.18 -> 0.16`
-  - `AEGIS_CLOSE_ONLY_ENTRY_PROGRESS: 0.92 -> 0.90`
-- Rationale: PAXG is repeatedly near-ready but blocked mostly by `waiting-candle-close` and reclaim quality.
-- Scope: PAXG only, no code changes.
-
-### Simulator experiment #2 (PAXG + XRP)
-
-- Backup created:
-  - `/home/xaos/gunbot/backups/aegis-20260328-192846-exp2/`
-- PAXG DCA spacing loosened to test quicker recovery adds:
-  - `MIN_DCA_DISTANCE_PCT: 1.75 -> 1.40`
-- XRP Kestrel trend gate loosened to reduce trend-blocked streaks:
-  - `KESTREL_TREND_MIN_SLOPE_PCT: -0.05 -> -0.10`
-  - `KESTREL_TREND_MAX_BELOW_SLOW_PCT: 0.60 -> 0.90`
-- Scope: PAXG + XRP only, simulator/testing only.
-
-### Simulator experiment #3 (BNB + PENDLE)
-
-- Backup created:
-  - `/home/xaos/gunbot/backups/aegis-20260328-193144-exp3/`
-- Applied same Kestrel trend loosening used on XRP:
-  - `KESTREL_TREND_MIN_SLOPE_PCT: -0.05 -> -0.10`
-  - `KESTREL_TREND_MAX_BELOW_SLOW_PCT: 0.60 -> 0.90`
-- Scope: BNB + PENDLE only.
-
-### Simulator experiment #4 (Kestrel trend + PAXG DCA)
-
-- Backup created:
-  - `/home/xaos/gunbot/backups/aegis-20260329-031457-exp4/`
-- PAXG DCA spacing loosened further:
-  - `MIN_DCA_DISTANCE_PCT: 1.40 -> 1.20`
-- Kestrel trend gate loosened further on all Kestrel pairs:
-  - `KESTREL_TREND_MIN_SLOPE_PCT: -0.10 -> -0.15`
-  - `KESTREL_TREND_MAX_BELOW_SLOW_PCT: 0.90 -> 1.10`
-- Scope: XRP + BNB + PENDLE.
-
-### Ops automation update
-
-- Added new 6h digest script: `/home/xaos/gunbot/customStrategies/ops/summary-6h.js`.
-- Output file: `/home/xaos/gunbot/customStrategies/ops/summary-6h.txt`.
-- Added cron job (every 6 hours):
-  - `0 */6 * * * /usr/bin/node /home/xaos/gunbot/customStrategies/ops/summary-6h.js >> /home/xaos/gunbot/customStrategies/ops/summary-6h-cron.log 2>&1`
-- Initial run completed successfully; digest written.
-- Telegram push not wired (needs OpenClaw-native scheduler or explicit notifier path).
-- OpenClaw Gateway cron job created for Telegram delivery:
-  - name: "Gunbot 6h Digest"
-  - schedule: `0 */6 * * *` (Europe/Berlin, default 5m stagger)
-  - session: isolated agent turn
-  - delivery: telegram -> `7252946416`
-  - job id: `e169f911-7b15-46c5-a32d-a9a52dd67b8b`
-
-## 2026-03-27
-
-### Session focus
-
-Phase 0 audit for Aegis, followed by the first real implementation target for `Aegis.js`.
-
-### What was analyzed before coding
-
-1. `AGENTS.md`
-2. Local Gunbot folder structure under `/home/xaos/gunbot`
-3. Local pair and memory state files under `/home/xaos/gunbot/json`
-4. `/home/xaos/gunbot/config.js`
-5. Official Gunbot custom strategy docs:
-   - Create and Run a Custom Strategy in Gunbot
-   - Available Methods and Modules for Custom Strategies
-   - Available Market and Position Data
-   - Persistent Storage for Custom Strategies
-   - Visualize Strategy Targets
-   - Display Custom Stats and GUI Notifications
-   - Send Notifications to the Gunbot GUI
-   - Control Strategy Parameters from the GUI
-   - Add Your Own Logs to Custom Strategies
-   - Custom Strategy Code Examples
-
-### Local repository / Gunbot environment findings
-
-- Working directory is `/home/xaos/gunbot/customStrategies`.
-- `customStrategies` currently contained only `AGENTS.md` before this session.
-- No project `README.md` was present in the repo-local scope. Only unrelated `README` files existed under `node_modules`.
-- Gunbot root contains relevant runtime files and folders:
-  - `/home/xaos/gunbot/config.js`
-  - `/home/xaos/gunbot/config-js-example.txt`
-  - `/home/xaos/gunbot/json/`
-  - `/home/xaos/gunbot/gunbot_logs/`
-  - `/home/xaos/gunbot/customStrategies/`
-- Current live pair config in `config.js` is `binance / USDT-PAXG`, currently using another custom strategy profile (`quanta_exotrader`) with `BUY_METHOD` and `SELL_METHOD` both set to `custom`.
-
-### Local example strategy findings
-
-- No local custom strategy source files were present in `./customStrategies`.
-- No other local custom strategy JavaScript sources were found outside `node_modules`.
-- Locally accessible strategy references were limited to pair-state artifacts:
-  - `/home/xaos/gunbot/json/memory.json`
-  - `/home/xaos/gunbot/json/binance-USDT-PAXG-state.json`
-  - `/home/xaos/gunbot/json/binance-USDT-PAXG-quantaexotrader-state.json`
-- These were used only for runtime shape verification and UI/telemetry architecture ideas, not for code reuse.
-
-### Verified Gunbot runtime capabilities used for Aegis
-
-#### Strategy runtime model
-
-- Gunbot custom strategies run as asynchronous JavaScript functions.
-- Gunbot docs explicitly state Node.js compatibility target `v14.4.0`.
-- Strategy files are stored in `./customStrategies` and selected in GUI as custom strategy filenames.
-
-#### `gb.data`
-
-Verified from official docs and local pair-state structures:
-
-- Core pair context:
-  - `gb.data.pairName`
-  - `gb.data.exchangeName`
-  - `gb.data.period`
-- Balances and position state:
-  - `gb.data.baseBalance`
-  - `gb.data.quoteBalance`
-  - `gb.data.onOrdersBalance`
-  - `gb.data.breakEven`
-  - `gb.data.gotBag`
-  - `gb.data.openOrders`
-  - `gb.data.orders`
-- Orderbook / pricing:
-  - `gb.data.bid`
-  - `gb.data.ask`
-  - `gb.data.orderbook`
-- Candle arrays:
-  - `gb.data.candlesOpen`
-  - `gb.data.candlesHigh`
-  - `gb.data.candlesLow`
-  - `gb.data.candlesClose`
-  - `gb.data.candlesVolume`
-  - `gb.data.candlesTimestamp`
-  - `gb.data.candles`
-- Precalculated indicators documented as available when configured:
-  - `ema1`, `ema2`, `ema3`
-  - `rsi`
-  - `mfi`
-  - `lowBB`, `highBB`
-  - `fastSma`, `slowSma`
-  - `macd`, `macdSignal`, `macdHistogram`
-  - `stochK`, `stochD`, `stochRsi`
-  - `atr`, `adx`, `diPlus`, `diMinus`
-  - Ichimoku values
-- Raw pair ledger:
-  - `gb.data.pairLedger`
-  - Official docs confirm this mirrors pair JSON data and may hold custom persistent variables.
-
-#### `gb.method`
-
-Verified from official docs:
-
-- Spot order methods:
-  - `buyMarket`
-  - `sellMarket`
-  - `buyLimit`
-  - `sellLimit`
-  - post-only limit methods
-- Utility / data methods:
-  - `getCandles`
-  - `getLedger`
-  - `getTrend`
-  - `cancelOrder`
-  - `setTimeScaleMark`
-  - `tulind`
-  - `require`
-- Order methods return Promises.
-- `getCandles(count, period, pair, exchange)` is the safest documented way to fetch extra OHLCV for higher-timeframe logic.
-
-#### Additional OHLCV / module loading
-
-- Official docs verify `await gb.method.getCandles(...)` for extra timeframes.
-- Official docs verify `gb.method.require(...)` for loading Node/CommonJS modules from `user_modules`.
-- For Aegis v1, no external module dependency is required.
-
-#### Persistence
-
-- Official docs verify `gb.data.pairLedger.customStratStore` as the supported persistent storage area for custom strategies.
-- Official guidance warns against heavy dependence on persistence for critical truth.
-- Local state files currently do not contain a `customStratStore`, so Aegis must initialize it defensively.
-- Safe intended Aegis v1 persistence uses:
-  - cooldown timestamps
-  - phase flags
-  - DCA count
-  - trail peak / trail stop state
-  - last action metadata
-  - notification dedupe
-  - cached higher-timeframe regime metrics
-
-#### Pair overrides
-
-- Official docs verify custom override access via `gb.data.pairLedger.whatstrat`.
-- Official docs warn GUI-entered numeric values may arrive as strings and booleans may arrive as booleans or strings.
-- Local config and state files confirm `whatstrat` is the merged override/settings object for the active pair.
-- Aegis should parse all overrides defensively.
-
-#### Chart targets / visuals
-
-- Official docs verify easy target fields:
-  - `gb.data.pairLedger.customBuyTarget`
-  - `gb.data.pairLedger.customSellTarget`
-  - `gb.data.pairLedger.customStopTarget`
-  - `gb.data.pairLedger.customCloseTarget`
-  - `gb.data.pairLedger.customTrailingTarget`
-  - `gb.data.pairLedger.customDcaTarget`
-- Official docs verify advanced line arrays via `gb.data.pairLedger.customChartTargets`.
-- Official docs verify advanced shapes via `gb.data.pairLedger.customChartShapes`.
-- Local state files confirm `customChartShapes` and `customChartTargets` exist in pair ledger state.
-- Local `quantaexotrader` state confirms TradingView shape objects persist and use price/time point objects plus `options`.
-
-#### Sidebar telemetry / GUI notifications
-
-- Official docs verify:
-  - `gb.data.pairLedger.sidebarExtras`
-  - `gb.data.pairLedger.notifications`
-- Official docs state `sidebarExtras` is overwritten each cycle and must be refreshed every run.
-- Official docs state notifications are arrays of objects with:
-  - `text`
-  - `variant`
-  - `persist`
-- Local memory state confirms `sidebarExtras` is heavily used by another strategy and persists in pair ledger.
-
-#### Logging
-
-- Official docs verify `gb.method.require('fs')` can be used for custom file logging.
-- For Aegis v1, optional file logging is useful only for explicit debug mode and should remain off by default to avoid noisy writes.
-
-### Runtime assumptions for Aegis v1
-
-- Aegis will target spot only and will not depend on futures-only fields.
-- Aegis will not depend on external services or `user_modules`.
-- Aegis will compute its own core EMA, RSI, and ATR values from candle arrays so it does not depend on indicator-tab configuration.
-- Higher-timeframe regime logic will use `gb.method.getCandles(...)` with lightweight cached derived metrics in `customStratStore`.
-- If higher-timeframe fetch fails and no cached regime metrics exist, Aegis will block new entries rather than guessing regime.
-- Live bag truth will be derived from current Gunbot state (`gotBag`, balances, break-even, open orders), not only from persistence.
-- Aegis will treat `whatstrat.TRADE_LIMIT` and `whatstrat.TRADING_LIMIT` as interchangeable base-currency sizing inputs when present, because both patterns exist locally / in docs.
-
-### Files changed in this session
-
-- Added `LOG.md`
-- Added `Aegis.js`
-
-### Behavior implemented
-
-#### Aegis core flow
-
-- Single-file plain JavaScript custom strategy exported as an async function.
-- Defensive Gunbot runtime resolution:
-  - accepts a passed-in `gb` object if Gunbot provides it
-  - falls back to `globalThis.gb` / `global.gb` if Gunbot exposes `gb` globally
-- Internal structure split into:
-  - metadata / defaults
-  - override parsing
-  - state initialization
-  - math helpers
-  - higher-timeframe regime fetch / analysis
-  - current-timeframe setup analysis
-  - decision / action helpers
-  - chart updates
-  - sidebar telemetry
-  - notification helpers
-  - main execution flow
-
-#### Entry logic
-
-- Higher-timeframe regime gate based on:
-  - HTF close vs slow EMA
-  - HTF fast EMA vs slow EMA
-  - HTF fast EMA slope
-  - HTF fast/slow separation sanity
-- Value-zone pullback gate based on:
-  - local fast/slow EMA band
-  - recent impulse pullback percentage
-- Reclaim confirmation based on:
-  - lower wick ratio
-  - close location within candle range
-  - close above fast EMA
-  - close above previous close
-- Momentum sanity based on locally calculated RSI and RSI delta
-- Liquidity sanity based on:
-  - live spread
-  - relative candle volume
-  - signal candle range ceiling
-- Composite score is transparent:
-  - regime + value + reclaim + momentum + liquidity
-- Default profile requires full 5/5 score for entries
-
-#### DCA logic
-
-- DCA only when:
-  - bag exists
-  - no open orders
-  - no active TP1 runner phase
-  - regime still valid
-  - liquidity still valid
-  - value zone still valid
-  - reclaim still valid by default
-  - price has moved the configured minimum distance below last fill
-  - DCA count has not exceeded cap
-  - price is still above invalidation
-  - depth below break-even has not exceeded configured max
-
-#### Exit logic
-
-- Invalidation full exit
-- TP1 partial exit
-- Runner activation after TP1
-- ATR-adaptive trailing stop for runner
-- Stale-trade timeout exit when a trade has gone nowhere for too long
-
-#### Persistence / recovery
-
-- Uses `gb.data.pairLedger.customStratStore.aegis`
-- Stores only lightweight state:
-  - cooldown
-  - phase
-  - DCA count
-  - trail peak / stop
-  - last action timestamps
-  - last fill estimate
-  - last skip reason
-  - notification dedupe keys
-  - cached HTF derived metrics
-- Recovers bag timing conservatively from live state, with `pairLedger.whenwebought` used only as optional fallback if present
-
-#### Visualization / telemetry
-
-- Easy targets:
-  - `customBuyTarget`
-  - `customSellTarget`
-  - `customStopTarget`
-  - `customTrailingTarget`
-  - `customDcaTarget`
-- Advanced chart targets with Aegis-specific labels
-- Optional value-zone rectangle shape
-- Sidebar telemetry each cycle with:
-  - strategy version
-  - regime state
-  - score
-  - setup state
-  - phase
-  - DCA count
-  - trail stop
-  - invalidation
-  - spread
-  - RSI
-  - live PnL
-  - bag age
-  - skip reason
-- GUI notifications for:
-  - setup armed
-  - regime enabled
-  - regime disabled
-  - entry executed
-  - DCA executed
-  - TP1 taken / runner armed
-  - invalidation exit
-  - stale exit
-  - runner trail exit
-
-### Runtime assumptions still in force
-
-- Export shape assumption:
-  - docs clearly say custom strategies are async functions, but local sources did not explicitly show whether Gunbot passes `gb` as an argument or exposes it globally
-  - implementation supports both argument-passed and global `gb`
-- Higher-timeframe data assumption:
-  - Aegis expects `gb.method.getCandles(...)` to be available and to return documented OHLCV object arrays
-  - if HTF fetch fails and no cached HTF metrics exist, Aegis blocks new entries instead of inferring regime
-- File logging:
-  - intentionally deferred for v1 runtime simplicity even though Gunbot supports it
-
-### Current test status
-
-- `node --check /home/xaos/gunbot/customStrategies/Aegis.js` passed
-- Stubbed execution against local pair-state data passed for:
-  - base strategy execution
-  - no-HTF-data fallback branch
-  - normal HTF normalization / regime-analysis branch using synthetic `getCandles` output built from local candles
-- No live Gunbot simulator run was performed inside this session
-- No live exchange run was performed inside this session
-
-### 2026-03-27 runtime fix
-
-- Gunbot reported `ReferenceError: module is not defined`
-- This confirmed the current Gunbot runtime evaluates custom strategy code directly instead of always exposing a CommonJS `module` object
-- `Aegis.js` was updated so that:
-  - it exports via `module.exports` only when `module` exists
-  - otherwise it self-invokes `aegisStrategy(...)` for Gunbot eval execution
-- Follow-up syntax check passed after this change
-
-### Remaining / next iteration
-
-1. Run Aegis in Gunbot simulator on one controlled pair
-2. Validate chart cleanup behavior in the actual GUI
-3. Validate notification cadence in the actual GUI
-4. Confirm Gunbot runtime calls the strategy export exactly as expected
-5. Tune default thresholds on majors like BTC/USDT and ETH/USDT
-6. Consider optional debug file logging only after simulator evidence justifies it
-
-### 2026-03-27 live runtime inspection
-
-- Verified that Aegis is currently attached to `USDT-BTC`, not `USDT-PAXG`
-- `USDT-PAXG` is still running another custom strategy profile (`STRAT_FILENAME: "filename.js"`) and its sidebar telemetry remains Quanta exoTrader output
-- Aegis is executing without runtime exceptions on `USDT-BTC`
-- Current live Aegis state from `binance-USDT-BTC-state.json`:
-  - `Regime: OFF 0/4`
-  - `Score: 1/5`
-  - `Setup: IDLE`
-  - `Phase: FLAT`
-  - `Skip: regime-fail`
-  - no active chart targets or shapes
-  - no active notifications
-- Current cached higher timeframe regime metrics in `customStratStore.aegis.htfMetrics`:
-  - `close: 65788.2`
-  - `fast EMA: 67259.4576`
-  - `slow EMA: 68585.4874`
-  - `slopePct: -0.7159`
-  - `separationPct: -1.9334`
-  - `reason: regime-fail`
-- Interpretation:
-  - Aegis is correctly staying flat because its higher timeframe gate is bearish and failing all 4 regime checks
-- Pair log visibility note:
-  - `binance.USDT-BTC.log` currently shows only Gunbot core cycle tables
-  - no Aegis-specific log lines have appeared yet because:
-    - `ENABLE_DEBUG_LOGS` defaults to false
-    - info logs only fire on meaningful transitions such as setup armed, regime toggle, entries, exits, or bag recovery
-    - current runtime has remained in the same flat / regime-fail state
-
-### 2026-03-27 development observability and config hardening
-
-- Created backups before editing:
-  - `/home/xaos/gunbot/backups/aegis-20260327-194241/`
-- Added persistent working memory file:
-  - `MEMORY.md`
-- Updated `AGENTS.md` to require:
-  - timestamped backups before edits
-  - `MEMORY.md` maintenance alongside `LOG.md`
-- Aegis logging was upgraded with a compact cycle-summary mode:
-  - new override: `AEGIS_LOG_MODE`
-  - supported values:
-    - `events`
-    - `changes`
-    - `cycle`
-- Current development configuration sets both active pairs to:
-  - `AEGIS_LOG_MODE: "cycle"`
-  - `ENABLE_DEBUG_LOGS: false`
-- Important Gunbot runtime discovery:
-  - custom strategy `console.log` output is not written into the pair-specific files such as:
-    - `gunbot_logs/binance.USDT-BTC.log`
-    - `gunbot_logs/binance.USDT-PAXG.log`
-  - Aegis custom log lines are written into:
-    - `gunbot_logs/gunbot_logs.txt`
-- Verified live Aegis log output exists there for both pairs with lines such as:
-  - `[STATE] tf=15m ... regime=... score=... skip=...`
-
-### 2026-03-27 Gunbot notional fix
-
-- Corrected a Gunbot environment mismatch in Aegis:
-  - `MIN_VOLUME_TO_BUY` and `MIN_VOLUME_TO_SELL` must be treated as base-currency order value thresholds in Aegis checks
-  - market order method amounts still remain quote-asset amounts for `buyMarket(...)` and `sellMarket(...)`
-- Fixed affected runtime paths:
-  - bag detection
-  - buy minimum threshold validation
-  - sell minimum threshold validation
-- This prevents false sell blocking on pairs such as `USDT-BTC` and `USDT-PAXG`
-
-### 2026-03-27 pair configuration decision
-
-- Both live development pairs are now explicitly configured for Aegis:
-  - `USDT-BTC`
-  - `USDT-PAXG`
-- Both remain on `15m` execution candles for now
-- Decision rationale:
-  - acceptable for development because Aegis already uses a `60m` higher-timeframe regime gate internally
-  - keeping both on `15m` improves feedback speed while tuning
-  - reassess later for production, with `PAXG` the first candidate to move to `30m` if needed
-- Added explicit pair overrides in `config.js` for both pairs:
-  - `MIN_VOLUME_TO_BUY: 10`
-  - `MIN_VOLUME_TO_SELL: 10`
-  - `TRADING_LIMIT: 100`
-  - `AEGIS_TRADE_LIMIT: 100`
-  - pair-specific `AEGIS_RISK_PROFILE`
-  - charts / notifications enabled
-
-### 2026-03-27 Aegis 1.1.0 explainability and chart refinement
-
-- Created a fresh backup before this refinement pass:
-  - `/home/xaos/gunbot/backups/aegis-20260327-200555/`
-  - additional `config.js` backup copy:
-    - `/home/xaos/gunbot/backups/aegis-20260327-200555/config.js.pre-1.1.0-tuning`
-- Upgraded `Aegis.js` from `1.0.0` to `1.1.0`
-- Refined frame-analysis diagnostics with granular reason codes:
-  - value reasons now distinguish:
-    - `pullback-too-shallow`
-    - `pullback-too-deep`
-    - `above-value-band`
-    - `below-value-band`
-  - reclaim reasons now distinguish:
-    - `below-reclaim-trigger`
-    - `weak-close-location`
-    - `weak-lower-wick`
-    - `bearish-signal-close`
-    - `no-close-improvement`
-  - momentum reasons now distinguish:
-    - `rsi-unavailable`
-    - `rsi-below-floor`
-    - `rsi-overheated`
-    - `rsi-delta-weak`
-  - liquidity reasons now distinguish:
-    - `market-price-missing`
-    - `spread-too-wide`
-    - `volume-too-light`
-    - `signal-range-too-wide`
-- Added an explicit setup-stage classifier for live telemetry and logs:
-  - examples:
-    - `regime-blocked`
-    - `value-pullback-watch`
-    - `value-breakdown-watch`
-    - `reclaim-watch`
-    - `momentum-reset`
-    - `liquidity-screen`
-    - `entry-ready`
-    - `bag-manage`
-    - `runner-manage`
-- Improved cycle-summary logging:
-  - state lines now include:
-    - `stage=...`
-    - per-component reason labels instead of just `0/1`
-  - this makes live log reading materially more useful during tuning
-- Improved chart productization:
-  - chart targets now render earlier when regime is on, not only when score is already high
-  - preview targets now include:
-    - buy watch / buy ready
-    - reclaim line
-    - TP1 preview
-    - stop
-  - bag charts still render TP1 / invalidation / DCA / trail
-  - added a second risk-zone rectangle below the value zone when the setup is active enough to matter
-- Improved sidebar telemetry:
-  - added `Stage`
-  - added `Reclaim`
-  - `Skip` now renders as a real blocker state instead of neutral decoration
-
-### 2026-03-27 live 1.1.0 findings
-
-- Verified live Gunbot output picked up `Aegis Regime Reclaim 1.1.0` in:
-  - `gunbot_logs/gunbot_logs.txt`
-- New live logs now show materially better diagnostics, for example:
-  - `USDT-PAXG`:
-    - `phase=armed`
-    - `stage=reclaim-watch`
-    - `score=3/5`
-    - `skip=weak-close-location`
-    - `value=ok`
-    - `reclaim=weak-close-location`
-    - `momentum=rsi-delta-weak`
-    - `liquidity=ok`
-  - `USDT-BTC`:
-    - `stage=regime-blocked`
-    - `skip=regime-fail`
-    - `reclaim=below-reclaim-trigger`
-    - `momentum=rsi-below-floor`
-    - `liquidity=volume-too-light`
-- Important environment finding:
-  - Aegis is currently attached to more than just `USDT-BTC` and `USDT-PAXG`
-  - live logs also showed:
-    - `USDT-ETH`
-    - `USDT-PENDLE`
-    - `USDT-BNB`
-    - `USDT-SOL`
-
-### 2026-03-27 config hygiene for development logs
-
-- Updated `config.js` after backing it up so development logging stays readable:
-  - `USDT-BTC`
-    - `AEGIS_RISK_PROFILE: "balanced"`
-    - `AEGIS_LOG_MODE: "cycle"`
-  - `USDT-PAXG`
-    - `AEGIS_RISK_PROFILE: "conservative"`
-    - `AEGIS_LOG_MODE: "cycle"`
-  - `USDT-ETH`
-    - `AEGIS_LOG_MODE: "changes"`
-  - `USDT-PENDLE`
-    - `AEGIS_LOG_MODE: "changes"`
-  - `USDT-BNB`
-    - `AEGIS_LOG_MODE: "changes"`
-  - `USDT-SOL`
-    - `AEGIS_LOG_MODE: "changes"`
-- `config.js` JSON parse check passed after these edits
-
-### Current test status after 1.1.0
-
-- `node --check /home/xaos/gunbot/customStrategies/Aegis.js` passed
-- `config.js` JSON parse check passed
-- Live Gunbot log output confirms `1.1.0` is executing
-- Full GUI verification of the new chart visuals has not yet been performed in this session
-- Pair state JSON files did not expose the sidebar extras directly, so live GUI sidebar verification remains pending
-
-### Remaining / next iteration after 1.1.0
-
-1. Inspect the actual Gunbot chart for `USDT-PAXG` while it remains in `reclaim-watch`
-2. Confirm the new risk-zone rectangle and reclaim line look clean rather than cluttered
-3. Decide whether setup-armed should require momentum in addition to value plus liquidity
-4. Consider a dedicated `entry-watch` / `near-ready` notification only if it adds value without spam
-5. Add a compact summary of stale-skip and blocker frequencies if simulator evidence justifies it
-
-### 2026-03-27 expanded live deployment review and audit follow-up
-
-- Reviewed current live Aegis deployment from `config.js`
-- Aegis is now active on six Binance spot pairs:
-  - `USDT-BTC`
-  - `USDT-PAXG`
-  - `USDT-ETH`
-  - `USDT-PENDLE`
-  - `USDT-BNB`
-  - `USDT-SOL`
-- Current pair profiles / log modes:
-  - `USDT-BTC`
-    - `balanced`
-    - `cycle`
-  - `USDT-PAXG`
-    - `conservative`
-    - `cycle`
-  - `USDT-ETH`
-    - `conservative`
-    - `changes`
-  - `USDT-PENDLE`
-    - `conservative`
-    - `changes`
-  - `USDT-BNB`
-    - `conservative`
-    - `changes`
-  - `USDT-SOL`
-    - `conservative`
-    - `changes`
-- Reviewed live Aegis state lines in `gunbot_logs/gunbot_logs.txt`
-- Current latest live snapshot:
-  - `USDT-PAXG`
-    - regime `ON 4/4`
-    - stage `reclaim-watch`
-    - score `3/5`
-    - skip `weak-lower-wick`
-    - momentum `ok`
-    - liquidity blocked by `volume-too-light`
-  - `USDT-BTC`
-    - regime `OFF 0/4`
-    - stage `regime-blocked`
-    - score `2/5`
-    - reclaim `weak-lower-wick`
-    - momentum `ok`
-    - liquidity blocked by `volume-too-light`
-  - `USDT-ETH`
-    - regime `OFF 0/4`
-    - stage `regime-blocked`
-    - score `2/5`
-    - momentum `ok`
-    - liquidity blocked by `volume-too-light`
-  - `USDT-PENDLE`
-    - regime `OFF 0/4`
-    - stage `regime-blocked`
-    - score `2/5`
-    - liquidity blocked by `volume-too-light`
-  - `USDT-BNB`
-    - regime `OFF 0/4`
-    - stage `regime-blocked`
-    - score `2/5`
-    - liquidity blocked by `volume-too-light`
-  - `USDT-SOL`
-    - regime `OFF 0/4`
-    - stage `regime-blocked`
-    - score `1/5`
-    - reclaim `below-reclaim-trigger`
-    - momentum `rsi-below-floor`
-- Event / error status from live logs:
-  - no `ERROR` or `FATAL` lines observed for Aegis
-  - one meaningful `INFO` event observed:
-    - `USDT-PAXG` setup armed
-  - no entries, DCA events, TP1 events, runner exits, or invalidation exits observed yet in the reviewed log window
-- Performance interpretation:
-  - too early to judge trading performance because no completed trades were observed
-  - current live evidence supports that Aegis is filtering aggressively rather than overtrading
-  - `USDT-PAXG` is the only pair currently close enough to the thesis to deserve primary attention
-
-### 2026-03-27 Gemini audit review
-
-- Reviewed `AUDITgemini.md`
-- Audit assessment is directionally correct:
-  - it correctly recognized the strategy architecture, defensive posture, runtime compatibility work, and telemetry quality
-- Two audit suggestions were evaluated:
-  - chart overlap cleanup:
-    - valid but lower priority until we visually confirm chart clutter in the actual GUI
-  - notification-key growth:
-    - valid and worth fixing immediately because it is a pure maintenance improvement with no strategy-side behavioral risk
-
-### 2026-03-27 Aegis 1.1.1 maintenance fix
-
-- Created fresh backups before editing:
-  - `/home/xaos/gunbot/backups/aegis-20260327-202039/`
-- Upgraded `Aegis.js` from `1.1.0` to `1.1.1`
-- Implemented bounded notification dedupe storage:
-  - added notification retention settings in internal telemetry config
-  - added `lastNotificationPruneAt` to persistent state
-  - added `pruneNotificationKeys(...)`
-  - prune runs from main execution flow and removes:
-    - invalid timestamps
-    - stale notification keys
-    - excess keys beyond a fixed cap
-- This addresses the main long-run persistence hygiene concern raised by the Gemini audit without changing trade logic
-
-### Current test status after 1.1.1
-
-- `node --check /home/xaos/gunbot/customStrategies/Aegis.js` passed
-- Live `1.1.1` execution has not yet been confirmed in Gunbot logs inside this session
-- No simulator run was performed in this follow-up pass
-
-### Remaining / next iteration after 1.1.1
-
-1. Confirm Gunbot reloads and starts emitting `Aegis Regime Reclaim 1.1.1` lines
-2. Check whether `USDT-PAXG` can convert `reclaim-watch` into a real entry or keeps failing on liquidity / wick quality
-3. Decide whether `minRelativeVolume` is too strict for defensive metals like `PAXG`
-4. Review actual chart visuals for overlap before changing chart-target logic further
-
-### 2026-03-27 Aegis monitor automation
-
-- User requested automation around the current live review items:
-  1. watch `USDT-PAXG` reclaim behavior
-  2. keep `USDT-BTC` as the regime-control pair
-  3. surface when `PAXG` repeatedly reaches near-ready conditions without entering
-- Created a non-runtime operations helper:
-  - `ops/aegis-monitor.js`
-- Purpose:
-  - parse Aegis lines from `gunbot_logs/gunbot_logs.txt`
-  - maintain lightweight monitor state outside the strategy runtime
-  - summarize current live pair states
-  - track repeated `PAXG` near-ready observations
-  - preserve `BTC` regime-control visibility
-  - emit simple tuning alerts without touching Gunbot execution logic
-- Generated helper outputs:
-  - `ops/aegis-monitor-state.json`
-  - `ops/aegis-monitor-report.txt`
-  - `ops/aegis-monitor-history.log`
-  - `ops/aegis-monitor-cron.log`
-- Cron setup:
-  - backed up current user crontab first:
-    - `/home/xaos/gunbot/backups/aegis-20260327-202039/crontab.before`
-  - existing crontab status before install:
-    - no user crontab existed
-  - installed job:
-    - `*/5 * * * * /usr/bin/node /home/xaos/gunbot/customStrategies/ops/aegis-monitor.js >> /home/xaos/gunbot/customStrategies/ops/aegis-monitor-cron.log 2>&1`
-
-### 2026-03-27 first monitor output
-
-- Manual run of `ops/aegis-monitor.js` succeeded
-- Current first-pass automated read:
-  - `USDT-PAXG`
-    - still `reclaim-watch`
-    - still `3/5`
-    - still blocked by:
-      - reclaim quality:
-        - mostly `weak-lower-wick`
-      - liquidity:
-        - `volume-too-light`
-  - `USDT-BTC`
-    - still functioning as the regime-control pair
-    - current state remains `regime-blocked`
-- First automated recommendation:
-  - `PAXG` has accumulated repeated near-ready observations in an allowed regime without entry
-  - before changing reclaim logic, pair-specific liquidity tolerance should be tested in the simulator
-- Important interpretation note:
-  - monitor counts are based on Aegis log observations, not completed candles or actual order attempts
-
-### Current test status after automation pass
-
-- `ops/aegis-monitor.js` executed successfully under Node
-- cron entry installed successfully
-- helper report/state/history files are being written in `ops/`
-- no runtime strategy code was changed in this automation pass
-
-### Remaining / next iteration after automation pass
-
-1. Let the cron monitor accumulate more PAXG observations
-2. Re-read `ops/aegis-monitor-report.txt` after a few hours
-3. If PAXG remains near-ready with liquidity as the persistent blocker, test pair-specific `MIN_RELATIVE_VOLUME` relaxation in the simulator only
-4. Keep BTC unchanged as the regime-control reference unless its higher-timeframe gate materially improves
-
-### 2026-03-27 full audit and technical README
-
-- Created session backups before editing tracked docs:
-  - `/home/xaos/gunbot/backups/aegis-20260327-203314/`
-- Wrote a full current-state audit:
-  - `AUDIT.md`
-- Wrote a technical strategy README:
-  - `README.md`
-
-### 2026-03-27 audit outcome
-
-- Audited scope:
-  - `Aegis.js`
-  - `ops/aegis-monitor.js`
-  - current Aegis deployment in `config.js`
-  - current live Aegis output in `gunbot_logs/gunbot_logs.txt`
-  - current monitor output in `ops/aegis-monitor-report.txt`
-- Syntax checks passed:
-  - `node --check /home/xaos/gunbot/customStrategies/Aegis.js`
-  - `node --check /home/xaos/gunbot/customStrategies/ops/aegis-monitor.js`
-- High-level audit verdict:
-  - no critical or high-severity runtime defects found
-  - code quality and observability are strong
-  - main gap is validation depth and pair-specific tuning, not implementation quality
-
-### 2026-03-27 main audit findings
-
-1. Live rollout scope exceeds validated tuning scope
-   - Aegis is live on six pairs while primary validation still centers on BTC and PAXG
-2. PAXG appears over-filtered for the current `15m` conservative profile
-   - repeated near-ready observations keep failing on reclaim quality and `volume-too-light`
-3. The ops monitor is useful but observation-based
-   - its counters represent parsed log samples, not unique candles or actual entry attempts
-
-### 2026-03-27 README coverage
-
-- README now documents:
-  - strategy thesis
-  - runtime model
-  - regime / value / reclaim / momentum / liquidity layers
-  - scoring, DCA, exits, persistence, charts, sidebar, notifications
-  - override groups
-  - live deployment assumptions
-  - ops monitor usage
-  - logging location
-  - installation and testing order
-
-### Current test status after audit/docs pass
-
-- `Aegis.js` syntax check passed
-- `ops/aegis-monitor.js` syntax check passed
-- `Aegis Regime Reclaim 1.1.1` is still active in live logs
-- No new strategy runtime code changes were made in this pass
-
-### Remaining / next iteration after audit/docs pass
-
-1. Keep the monitor running and collect more PAXG evidence
-2. Simulator-test a PAXG-only liquidity relaxation before changing reclaim rules
-3. Treat the extra live pairs as observation scope until pair-specific validation catches up
-
-### 2026-03-27 expanded pair audit and config tuning
-
-- User enabled additional Aegis pairs and requested a fresh review of:
-  - live Aegis logs
-  - `config.js`
-  - Gunbot pair state files in `/home/xaos/gunbot/json/`
-- Created session backups before editing:
-  - `/home/xaos/gunbot/backups/aegis-20260327-212032/`
-    - `config.js`
-    - `LOG.md`
-    - `MEMORY.md`
-
-### 2026-03-27 new runtime findings from config, logs, and json state
-
-- Confirmed current enabled Aegis live pairs in `config.js`:
-  - `USDT-PAXG`
-  - `USDT-BTC`
-  - `USDT-ETH`
-  - `USDT-PENDLE`
-  - `USDT-BNB`
-  - `USDT-SOL`
-- Confirmed no pair-specific Aegis overrides were set before this pass beyond risk profile / log mode / period.
-- Verified Gunbot pair state persistence format more precisely:
-  - Aegis runtime state is persisted in the raw pair state json, not under a nested `pairLedger` object.
-  - Important live fields currently persist at top level such as:
-    - `whatstrat`
-    - `customStratStore.aegis`
-    - `customBuyTarget`
-    - `customSellTarget`
-    - `customStopTarget`
-    - `sidebarExtras`
-    - `notifications`
-- Verified Aegis sidebar labels are present across the enabled pairs.
-- Verified Aegis chart targets are currently active only on `USDT-PAXG`, which matches its regime-on / setup-watch state.
-
-### 2026-03-27 live read before config changes
-
-- `USDT-PAXG`
-  - only currently enabled pair with higher-timeframe regime passing
-  - recent sample from the last ~1000 Aegis state lines:
-    - `regimeOn`: `464 / 464`
-    - `score >= 3`: `59`
-    - top stage states:
-      - `value-pullback-watch`
-      - `reclaim-watch`
-    - dominant blockers:
-      - `above-value-band`
-      - `weak-close-location`
-      - `bearish-signal-close`
-      - `weak-lower-wick`
-    - persistent secondary blockers:
-      - `rsi-delta-weak`
-      - `volume-too-light`
-- `USDT-BTC`
-  - remains the clean regime-control pair
-  - recent sample:
-    - `regimeOn`: `0 / 424`
-    - `score >= 3`: `0`
-    - all reviewed states remain `regime-blocked`
-- `USDT-ETH`, `USDT-PENDLE`, `USDT-BNB`, `USDT-SOL`
-  - all currently remain regime-off in the reviewed window
-  - `USDT-PENDLE` occasionally reached `score >= 3`, but still failed the regime gate
-
-### 2026-03-27 config changes made
-
-- Edited:
-  - `/home/xaos/gunbot/config.js`
-- Added pair-specific `USDT-PAXG` overrides only:
-  - `MIN_RELATIVE_VOLUME: 0.5`
-  - `RECLAIM_CLOSE_LOCATION: 0.55`
-  - `MOMENTUM_MIN_RSI_DELTA: 0.2`
-- Rationale:
-  - PAXG is the only pair currently operating inside an allowed higher-timeframe regime.
-  - The reviewed logs show repeated PAXG setup progress being blocked by:
-    - light relative volume
-    - close-location reclaim strictness
-    - weak incremental RSI recovery
-  - The value-zone gate was intentionally not loosened in this pass.
-  - The other newly enabled pairs were intentionally left unchanged because they are still mostly failing the regime filter, so tuning them now would not be evidence-based.
-
-### 2026-03-27 validation after config changes
-
-- `config.js` JSON parse passed:
-  - `node` parse check succeeded
-- Verified Gunbot picked up the new `USDT-PAXG` overrides in live pair state without a restart:
-  - `MIN_RELATIVE_VOLUME: 0.5`
-  - `RECLAIM_CLOSE_LOCATION: 0.55`
-  - `MOMENTUM_MIN_RSI_DELTA: 0.2`
-- Immediate post-change live read:
-  - `USDT-PAXG` remains flat
-  - latest reviewed state is still:
-    - `stage=reclaim-watch`
-    - `score=2/5`
-    - `skip=weak-close-location`
-    - `liquidity=volume-too-light`
-  - interpretation:
-    - the config change was applied successfully
-    - it did not create an unsafe forced entry condition
-- No strategy runtime code was changed in this pass.
-- No Aegis syntax changes were required in this pass.
-
-### Remaining / next iteration after expanded pair audit
-
-1. Keep watching `gunbot_logs/gunbot_logs.txt` and `/home/xaos/gunbot/json/binance-USDT-PAXG-state.json` to see whether the new PAXG thresholds improve progression from:
-   - `value-pullback-watch`
-   - to `reclaim-watch`
-   - to `setup armed`
-2. If PAXG still stalls without progressing beyond reclaim quality, test either:
-   - a `30m` PAXG profile
-   - or a slightly wider PAXG value band
-   in simulator before making more live config changes.
-3. Keep BTC unchanged as the regime-control reference until its higher-timeframe regime meaningfully improves.
-
-### 2026-03-28 overnight live review and operator docs
-
-- User requested:
-  - analysis of the overnight collected Aegis data
-  - clear operator documentation for the strategy settings
-  - GitHub push guidance for `https://github.com/NukeThemAII/Aegis`
-- Created session backups before docs work:
-  - `/home/xaos/gunbot/backups/aegis-20260328-060151/`
-    - `README.md`
-    - `LOG.md`
-    - `MEMORY.md`
-
-### 2026-03-28 overnight monitor findings
-
-- Reviewed:
-  - `ops/aegis-monitor-report.txt`
-  - `ops/aegis-monitor-history.log`
-  - `ops/aegis-monitor-state.json`
-  - live pair state jsons in `/home/xaos/gunbot/json/`
-- Latest monitor snapshot at `2026-03-28T04:55:01.589Z`:
-  - no monitor-reported runtime errors
-  - no completed Aegis trade lifecycle observed
-  - `USDT-PAXG` remained the only consistently regime-on pair
-  - `USDT-BTC` remained fully regime-blocked
-- Focused review from the PAXG tuning window forward (`2026-03-27T22:20Z` to `2026-03-28T05:00Z`):
-  - monitor samples reviewed: `81`
-  - total new state lines processed in those samples: `11807`
-  - `USDT-PAXG`
-    - `score >= 3`: `13` samples
-    - `score >= 4`: `1` sample
-    - stage:
-      - `reclaim-watch`: `79`
-      - `momentum-reset`: `2`
-    - dominant blockers after tuning:
-      - `below-reclaim-trigger`: `40`
-      - `weak-close-location`: `27`
-      - `weak-lower-wick`: `10`
-    - liquidity result:
-      - `volume-too-light`: `80`
-      - `ok`: `1`
-  - `USDT-BTC`
-    - remained `regime-blocked` across the reviewed overnight window
-    - only `4` samples reached score `2/5`
-- Interpretation:
-  - the PAXG pair-specific tuning did not create unsafe entries
-  - PAXG still has a real setup flow, but reclaim confirmation and relative volume remain the main gating points
-  - blocker mix shifted from mostly `weak-close-location` toward more `below-reclaim-trigger`, which suggests the reclaim threshold nudge changed behavior without solving the deeper setup quality issue
-
-### 2026-03-28 live pair-state confirmation
-
-- Confirmed `USDT-PAXG` still runs with:
-  - `AEGIS_RISK_PROFILE=conservative`
-  - `PERIOD=15`
-  - `MIN_RELATIVE_VOLUME=0.5`
-  - `RECLAIM_CLOSE_LOCATION=0.55`
-  - `MOMENTUM_MIN_RSI_DELTA=0.2`
-- Confirmed current PAXG regime metrics remain valid:
-  - HTF regime still passes `4/4`
-- Confirmed current PAXG live state remains flat:
-  - latest skip reason:
-    - `below-reclaim-trigger`
-  - latest summary key shows:
-    - `value-ok`
-    - `below-reclaim-trigger`
-    - `momentum-ok`
-    - `volume-too-light`
-- Confirmed no versioned non-`[STATE]` Aegis lines were found in the reviewed live log window, so no verified entry / DCA / exit action was seen.
-
-### 2026-03-28 docs and repo work
-
-- Added a dedicated operator reference:
-  - `GUIDE.md`
-- Updated:
-  - `README.md`
-- Documentation decision:
-  - keep `README.md` as the strategy overview
-  - keep `GUIDE.md` as the operator and config reference
-- `GUIDE.md` now documents:
-  - required Gunbot custom-strategy plumbing
-  - sizing semantics for:
-    - `MIN_VOLUME_TO_BUY`
-    - `MIN_VOLUME_TO_SELL`
-    - `TRADING_LIMIT`
-    - `AEGIS_TRADE_LIMIT`
-  - all currently parsed Aegis override groups
-  - exact risk profile behavior
-  - log mode behavior
-  - which legacy Gunbot knobs Aegis ignores
-  - recommended starter presets
-
-### 2026-03-28 GitHub findings
-
-- Confirmed remote GitHub repository exists:
-  - `NukeThemAII/Aegis`
-  - default branch:
-    - `main`
-- Confirmed current remote `README.md` on GitHub is older and more presentation-oriented than the current local technical docs.
-- Confirmed current working directory `/home/xaos/gunbot/customStrategies` is not a git repository.
-- Safe publishing implication:
-  - do not run blind `git push` from the current working directory
-  - safest path is:
-    - clone the remote repo
-    - copy the current local files into that clone
-    - commit
-    - push
-
-### Current test status after overnight review/docs pass
-
-- No strategy runtime code was changed in this pass.
-- No syntax changes to `Aegis.js` were required in this pass.
-- Documentation files changed:
-  - `GUIDE.md`
-  - `README.md`
-- The overnight evidence still supports:
-  - simulator-first tuning before any broader live loosening
-
-### Remaining / next iteration after overnight review/docs pass
-
-1. Decide whether PAXG should next be tested on:
-   - `30m`
-   - or a slightly wider value band
-2. Keep BTC unchanged as the regime-control pair.
-3. Treat the other live pairs as observation scope until they produce regime-on evidence.
-4. Publish the current docs and strategy files into the GitHub repo using a clone-first workflow.
-
-### 2026-03-28 simulator matrix expansion and ops hardening
-
-- Created backup set before the new round of edits:
-  - `/home/xaos/gunbot/backups/aegis-20260328-065709`
-- Verified `AEGIS_TRADE_LIMIT=100` was already set on every active Aegis pair in `config.js`.
-- Expanded the simulator matrix in `/home/xaos/gunbot/config.js`:
-  - all Aegis pairs now run `AEGIS_LOG_MODE=cycle` for development visibility
-  - `USDT-PAXG` moved from `conservative` to `balanced`
-  - `USDT-PAXG` received pair-specific test overrides:
-    - `MIN_RELATIVE_VOLUME=0.25`
-    - `RECLAIM_WICK_RATIO=0.22`
-    - `RECLAIM_CLOSE_LOCATION=0.5`
-    - `MOMENTUM_MIN_RSI_DELTA=0.1`
-    - `VALUE_MIN_PULLBACK_PCT=0.2`
-    - `MIN_ENTRY_SCORE=4`
-  - `USDT-PENDLE` and `USDT-SOL` remain aggressive test pairs and now use:
-    - `REGIME_HTF_PERIOD=30`
-  - `USDT-XRP` is now the dedicated Kestrel pair:
-    - `STRAT_FILENAME=Kestrel.js`
-    - `PERIOD=5`
-    - aggressive Kestrel-specific overrides enabled
-
-### 2026-03-28 Aegis 1.2.0 runtime update
-
-- Updated `Aegis.js` to version `1.2.0`.
-- Main logic improvement:
-  - liquidity now compares projected current-candle volume against completed-candle averages instead of comparing raw partial-candle volume directly
-- Reason for the change:
-  - Gunbot is cycling on websocket updates inside the active candle
-  - raw current-candle volume was making the relative-volume gate unrealistically strict during development
-- Added new liquidity settings:
-  - `PROJECT_CURRENT_VOLUME`
-  - `PROJECTED_VOLUME_FLOOR`
-- Added `relvol=` to live `[STATE]` log lines for easier tuning.
-- Updated `GUIDE.md` to document the new Aegis liquidity options.
-
-### 2026-03-28 Kestrel strategy and docs
-
-- Added a second strategy:
-  - `Kestrel.js`
-- Current version:
-  - `1.0.1`
-- Added dedicated documentation:
-  - `KESTREL.md`
-- Also updated:
-  - `README.md`
-    - linked the separate Kestrel documentation without mixing the Aegis operator guide
-- Kestrel also received the same projected-volume treatment and `relvol=` log telemetry.
-
-### 2026-03-28 ops scripts and cron
-
-- Added a separate Kestrel monitor:
-  - `ops/kestrel-monitor.js`
-- Added log-retention automation:
-  - `ops/log-maintenance.js`
-- Added repo hygiene:
-  - `.gitignore`
-    - ignores generated monitor reports, history files, cron logs, and state snapshots under `ops/`
-  - removed tracked Aegis monitor runtime artifacts from the git index with `git rm --cached`
-- Installed cron jobs:
-  - Aegis monitor every 5 minutes
-  - Kestrel monitor every 5 minutes on an offset
-  - log maintenance hourly
-- Current cron contents:
-  - `*/5 * * * * /usr/bin/node /home/xaos/gunbot/customStrategies/ops/aegis-monitor.js >> /home/xaos/gunbot/customStrategies/ops/aegis-monitor-cron.log 2>&1`
-  - `2-59/5 * * * * /usr/bin/node /home/xaos/gunbot/customStrategies/ops/kestrel-monitor.js >> /home/xaos/gunbot/customStrategies/ops/kestrel-monitor-cron.log 2>&1`
-  - `17 * * * * /usr/bin/node /home/xaos/gunbot/customStrategies/ops/log-maintenance.js >> /home/xaos/gunbot/customStrategies/ops/log-maintenance-cron.log 2>&1`
-
-### 2026-03-28 live findings after the new rollout
-
-- Confirmed hot reload in live logs:
-  - `Aegis Regime Reclaim 1.2.0`
-  - `Kestrel Tape Scalper 1.0.1`
-- Current Aegis monitor report:
-  - `USDT-PAXG` remains the closest Aegis candidate
-  - latest reviewed state:
-    - `stage=reclaim-watch`
-    - `score=3/5`
-    - `skip=weak-lower-wick`
-    - `liquidity=volume-too-light`
-    - `relvol=0.03x`
-  - current Aegis majors still remain mostly regime-blocked in the reviewed live window
-- Current Kestrel live read is materially better than the first draft:
-  - `USDT-XRP` reached:
-    - `phase=armed`
-    - `stage=reclaim-watch`
-    - `score=3/5`
-  - active blockers now:
-    - `bearish-signal-close`
-    - `rsi-delta-weak`
-  - liquidity for Kestrel on XRP is now often `ok` with `relvol` around `0.23x` to `0.25x`
-
-### 2026-03-28 log-retention result
-
-- Ran `ops/log-maintenance.js` manually once after creation.
-- Result:
-  - checked files:
-    - `11`
-  - trimmed files:
-    - `6`
-  - reclaimed:
-    - `637.16 MiB`
-- Main directory impact:
-  - `/home/xaos/gunbot/gunbot_logs`
-    - from roughly `753 MiB`
-    - down to roughly `150 MiB`
-- The pair logs were reduced to about `12 MiB` each.
-
-### 2026-03-28 current test status after strategy and ops pass
-
-- `config.js` JSON parse passed.
-- Syntax checks passed for:
-  - `Aegis.js`
-  - `Kestrel.js`
-  - `ops/kestrel-monitor.js`
-  - `ops/log-maintenance.js`
-- Live scripts executed successfully:
-  - `ops/aegis-monitor.js`
-  - `ops/kestrel-monitor.js`
-  - `ops/log-maintenance.js`
-- Current confirmed live state:
-  - Aegis remains selective and still has no verified completed trade in the reviewed live window
-  - Kestrel is already producing setup-armed transitions on XRP in simulator mode
-
-### Remaining / next iteration after simulator matrix expansion
-
-1. Watch whether `USDT-PAXG` converts from reclaim-watch into a real Aegis entry after the new balanced profile and projected-volume logic.
-2. Watch whether Kestrel on `USDT-XRP` converts its new `setup armed` state into actual entries and TP/exit flow.
-3. If Aegis remains universally blocked on relative volume after more live cycles, revisit the volume model before simply lowering thresholds further.
-4. Treat Aegis monitor cumulative blocker counters as historical totals, not as clean post-change experiment data.
-
-### 2026-03-28 Claude audit actions, runtime isolation fix, and profile split
-
-- Backups created before this round:
-  - `/home/xaos/gunbot/backups/aegis-20260328-073208`
-- Reviewed the Claude deep audit supplied by the user and acted on the high-confidence items already implemented or confirmed in code:
-  - Aegis now includes:
-    - guarded `percentChange()`
-    - SMA-seeded EMA calculation
-    - corrected reset-clear logic
-    - stale-exit runner protection
-    - improved liquidity measurement using completed plus projected candle activity
-    - ask-based buy sizing
-    - state mutation only after confirmed `buyMarket()` / `sellMarket()` success
-    - optional two-bar reclaim confirmation
-  - Kestrel also now includes the matching low-risk execution fixes:
-    - guarded `percentChange()`
-    - SMA-seeded EMA
-    - improved blended volume measurement
-    - ask-based buy sizing
-    - post-fill state mutation only after confirmed order results
-    - time-stop protection after TP1
-- Added the same filename guard to `Kestrel.js` that was already added to `Aegis.js`.
-  - Purpose:
-    - prevent Gunbot eval-loader behavior from executing both strategy files on the wrong pair when custom strategy files are scanned
-  - New runtime versions after this fix:
-    - `Aegis.js`
-      - `1.3.1`
-    - `Kestrel.js`
-      - `1.1.1`
-- Reworked the simulator pair matrix in `config.js` so the profiles are intentionally different instead of duplicated:
-  - Aegis:
-    - `USDT-BTC`
-      - `conservative`
-      - `15m`
-      - control pair
-    - `USDT-ETH`
-      - `aggressive`
-      - `15m`
-      - conversion test pair
-    - `USDT-PAXG`
-      - `balanced`
-      - `15m`
-      - looser pair-level reclaim / liquidity test
-  - Kestrel:
-    - `USDT-PENDLE`
-      - `aggressive`
-      - `5m`
-      - `KESTREL_MAX_RELOAD_COUNT=4`
-    - `USDT-BNB`
-      - `balanced`
-      - `5m`
-      - `KESTREL_MAX_RELOAD_COUNT=2`
-    - `USDT-SOL`
-      - `aggressive`
-      - `5m`
-      - `KESTREL_MAX_RELOAD_COUNT=4`
-    - `USDT-XRP`
-      - `conservative`
-      - `5m`
-      - `KESTREL_MAX_RELOAD_COUNT=1`
-- Sizing / simulator capital changes now in config:
-  - all Aegis pairs:
-    - `AEGIS_TRADE_LIMIT=100`
-    - `TRADING_LIMIT=400`
-    - `MIN_VOLUME_TO_BUY=15`
-    - `MIN_VOLUME_TO_SELL=15`
-  - all Kestrel pairs:
-    - `KESTREL_TRADE_LIMIT=50`
-    - `TRADING_LIMIT=300`
-    - `MIN_VOLUME_TO_BUY=15`
-    - `MIN_VOLUME_TO_SELL=15`
-  - Reason:
-    - per-trade budget and pair-level headroom are now explicitly separated so simulator ladder tests are not blocked by pair caps
-- Pair-specific tuning added to increase coverage:
-  - `USDT-PAXG`
-    - `MIN_RELATIVE_VOLUME=0.10`
-    - `RECLAIM_WICK_RATIO=0.18`
-    - `RECLAIM_CLOSE_LOCATION=0.46`
-    - `MOMENTUM_MIN_RSI_DELTA=0.05`
-    - `VALUE_MIN_PULLBACK_PCT=0.15`
-    - `MIN_ENTRY_SCORE=3`
-    - `PROJECTED_VOLUME_FLOOR=0.20`
-  - `USDT-ETH`
-    - `MIN_RELATIVE_VOLUME=0.25`
-    - `RECLAIM_CLOSE_LOCATION=0.50`
-    - `MOMENTUM_MIN_RSI_DELTA=0.08`
-    - `REGIME_MIN_SLOPE_PCT=-0.05`
-    - `REGIME_MIN_SEPARATION_PCT=0.03`
-    - `MIN_ENTRY_SCORE=3`
-    - `PROJECTED_VOLUME_FLOOR=0.20`
-- Files changed this round:
-  - `Aegis.js`
-  - `Kestrel.js`
-  - `/home/xaos/gunbot/config.js`
-  - `GUIDE.md`
-  - `KESTREL.md`
-  - `LOG.md`
-  - `MEMORY.md`
-- Current expected next checks after Gunbot cycles:
-  1. confirm no fresh `Kestrel` logs appear on Aegis-assigned pairs
-  2. confirm no fresh `Aegis` logs appear on Kestrel-assigned pairs
-  3. confirm state files hot-reload the new pair profile split
-  4. watch whether ETH and PAXG begin arming or converting more often under the looser test matrix
-
-### 2026-03-28 Mako creation, XRP reassignment, and HFT lane split
-
-- Backups created before this round:
-  - `/home/xaos/gunbot/backups/aegis-20260328-074522`
-  - includes:
-    - `config.js`
-    - `KESTREL.md`
-    - `LOG.md`
-    - `MEMORY.md`
-    - `crontab.before`
-- User asked whether Kestrel was too close to Aegis and requested a true HFT-style strategy if needed.
-- Decision:
-  - Kestrel remains a valid fast continuation strategy
-  - but it still shares too much execution philosophy with Aegis to represent a genuinely separate HFT lane
-  - therefore a new strategy was created from the ground up instead of stretching Kestrel further
-
-#### New strategy added
-
-- Added:
-  - `Mako.js`
-    - `Mako Micro Scalper 1.0.0`
-  - `MAKO.md`
-  - `ops/mako-monitor.js`
-- Strategy concept:
-  - intrabar stretch-and-snapback mean reversion
-  - no higher-timeframe regime gate
-  - no continuation-score clone of Aegis
-  - state machine based:
-    - `idle`
-    - `liquidity-blocked`
-    - `stretch-watch`
-    - `armed`
-    - `entry-ready`
-    - `bag-manage`
-    - `trail-manage`
-- Core math:
-  - anchor EMA
-  - fast EMA
-  - pulse EMA
-  - ATR stretch from anchor
-  - intrabar bounce ratio off active candle low
-  - trigger reclaim
-  - short RSI / pulse sanity
-  - blended projected plus completed candle activity
-- Mako is intentionally designed to be able to trade multiple times inside one `5m` candle if the intrabar move resets and re-arms quickly enough.
-
-#### Pair deployment change
-
-- Reassigned:
-  - `USDT-XRP`
-    - from `Kestrel.js`
-    - to `Mako.js`
-- New XRP simulator config:
-  - `PERIOD=5`
-  - `TRADING_LIMIT=240`
-  - `MAKO_TRADE_LIMIT=30`
-  - `MAKO_PROFILE=turbo`
-  - `MAKO_MAX_LAYER_COUNT=5`
-  - `MAKO_LAYER_DISTANCE_ATR=0.28`
-  - `ENABLE_NOTIFICATIONS=false`
-- Kestrel active set is now:
-  - `USDT-PENDLE`
-  - `USDT-BNB`
-  - `USDT-SOL`
-
-#### Ops / monitoring
-
-- Added a dedicated Mako monitor:
-  - `ops/mako-monitor.js`
-- Installed cron:
-  - `4-59/5 * * * * /usr/bin/node /home/xaos/gunbot/customStrategies/ops/mako-monitor.js >> /home/xaos/gunbot/customStrategies/ops/mako-monitor-cron.log 2>&1`
-- Existing log-retention automation already covers the new monitor output naming pattern through `.gitignore` and the established log-maintenance workflow.
-
-#### Verification
-
-- Passed:
-  - `node --check /home/xaos/gunbot/customStrategies/Mako.js`
-  - `node --check /home/xaos/gunbot/customStrategies/ops/mako-monitor.js`
-  - `config.js` JSON parse
-- Manual monitor run passed:
-  - `Mako monitor | pairs=1 | USDT-XRP=idle/not-stretched/-0.15atr`
-- Live Gunbot log confirmed:
-  - `Mako Micro Scalper 1.0.0` on `USDT-XRP`
-- Recent wrong-pair scan after this round:
-  - no fresh `Mako` lines on non-XRP pairs
-  - no fresh `Aegis` lines on Kestrel or Mako pairs
-  - no fresh `Kestrel` lines on BTC, PAXG, or XRP
-- One earlier stray `Kestrel` line on `USDT-ETH` appeared during the transition window, but a later wrong-pair scan came back clean.
-
-#### Current live read
-
-- Aegis:
-  - `USDT-PAXG`
-    - strongest current candidate
-    - reached `reclaim-watch`
-    - `score=4/5`
-    - still blocked by `weak-lower-wick`
-  - `USDT-BTC`
-    - still correct control pair
-    - `regime-blocked`
-- Kestrel:
-  - `USDT-BNB`
-    - still the closest Kestrel continuation candidate in the reviewed window
-  - Kestrel fleet now correctly reports `pairs=3`
-- Mako:
-  - `USDT-XRP`
-    - current early live state:
-      - `stage=idle`
-      - `skip=not-stretched`
-      - `stretch=-0.15atr`
-      - `relvol=0.03x`
-    - no entry yet, which is expected immediately after deployment because the pair has not produced a qualifying intrabar overshoot in the reviewed window
-
-#### Files changed this round
-
-- `Mako.js`
-- `MAKO.md`
-- `ops/mako-monitor.js`
-- `/home/xaos/gunbot/config.js`
-- `KESTREL.md`
-- `LOG.md`
-- `MEMORY.md`
-
-#### Next
-
-1. Let Mako accumulate several hours of XRP intrabar data before tuning thresholds.
-2. First Mako tuning targets, if needed:
-   - `MAKO_ENTRY_ATR`
-   - `MAKO_ARM_BOUNCE_RATIO`
-   - `MAKO_MIN_RELATIVE_VOLUME`
-   - `MAKO_LAYER_DISTANCE_ATR`
-3. Keep Aegis and Mako tuning independent:
-   - Aegis remains the selective regime product
-   - Mako is now the pure simulator HFT lane
-
-## 2026-03-28 - Kestrel immediate time-stop bug audit and fix
+## 2026-04-01 - Live audit of active Aegis/Kestrel runtime and config
 
 ### What was analyzed
 
-- Reviewed live Gunbot logs for `USDT-SOL` after the user reported simulated red PnL.
-- Cross-checked `Kestrel.js`, `/home/xaos/gunbot/config.js`, and the live state files in `/home/xaos/gunbot/json/`.
-- Compared the actual order timestamps in `binance-USDT-SOL-state.json` and `binance-USDT-BNB-state.json` against Kestrel log events.
+- Reviewed active pair matrix in `/home/xaos/gunbot/config.js`
+- Reviewed recent live strategy output in `/home/xaos/gunbot/gunbot_logs/gunbot_logs.txt`
+- Reviewed current monitor outputs:
+  - `/home/xaos/gunbot/customStrategies/ops/aegis-monitor-report.txt`
+  - `/home/xaos/gunbot/customStrategies/ops/kestrel-monitor-report.txt`
+  - `/home/xaos/gunbot/customStrategies/ops/summary-6h.txt`
+- Reviewed current runtime code in:
+  - `/home/xaos/gunbot/customStrategies/Aegis.js`
+  - `/home/xaos/gunbot/customStrategies/Kestrel.js`
+- Reviewed live pair state JSON for the active pairs.
 
 ### Findings
 
-- `USDT-SOL` completed three losing round trips:
-  - `2026-03-28T06:40:43.192Z` buy -> `2026-03-28T06:40:49.771Z` sell
-  - `2026-03-28T08:26:21.446Z` buy -> `2026-03-28T08:26:27.655Z` sell
-  - `2026-03-28T08:36:30.486Z` buy -> `2026-03-28T08:36:37.084Z` sell
-- `USDT-BNB` showed the same pattern:
-  - `2026-03-28T08:37:53.698Z` buy -> `2026-03-28T08:38:00.583Z` sell
-- All of those exits were labeled by Kestrel as `time-stop`, which is inconsistent with the configured `60` minute aggressive-profile timeout.
-- Root cause:
-  - Gunbot `whenwebought` on these pairs was stale from the previous day:
-    - `USDT-SOL`: `2026-03-27T19:08:09.886Z`
-    - `USDT-BNB`: `2026-03-27T19:02:53.051Z`
-  - Kestrel bag recovery could fall back to that stale timestamp.
-  - Fresh bags were therefore sometimes treated as already many hours old.
-  - The next cycle then satisfied the time-stop age check and sold almost immediately, realizing only fees/spread loss.
-
-### Behavior changed
-
-- Updated `Kestrel.js` to `1.1.2`.
-- Added active-bag entry-time recovery from actual local order history instead of trusting stale `whenwebought` alone.
-- Added `KESTREL_POST_ENTRY_GRACE_SECONDS`:
-  - default `60`
-  - conservative profile `90`
-  - aggressive profile `45`
-- Momentum exits and time-stop exits are now blocked during the post-entry grace window.
-- Hard stop logic remains immediate.
+- Closed-trade evidence is currently positive across the active set:
+  - `Aegis / USDT-PAXG`: realized PnL about `+1.22 USDT`
+  - `Aegis / USDT-BTC`: realized PnL about `+1.34 USDT`
+  - `Aegis / USDT-ETH`: realized PnL about `+1.46 USDT`
+  - `Kestrel / USDT-PENDLE`: realized PnL about `+0.38 USDT`
+  - `Kestrel / USDT-BNB`: realized PnL about `+0.36 USDT`
+  - `Kestrel / USDT-XRP`: realized PnL about `+0.67 USDT`
+- Open-bag posture also looks materially healthier than the older stop-exit phase:
+  - `PAXG` is in runner mode with positive live PnL
+  - `BTC` and `SOL` are managing live Aegis bags
+  - `BNB`, `PENDLE`, and `XRP` are managing live Kestrel bags
+- Two real defects were confirmed from live evidence:
+  1. both strategies still defaulted `unlimitedCount` to `true`, which caused misleading `0/unl` add-cap telemetry despite `config.js` specifying capped add counts
+  2. Aegis could emit `setup-armed` notifications during exit cooldown because cooldown normalization happened too late in the cycle
+- No evidence justified loosening DCA / reload thresholds yet:
+  - add counts are still `0/x`
+  - but live bags are being managed cleanly
+  - no new forced red exits were observed
 
 ### Files changed
-
-- `Kestrel.js`
-- `KESTREL.md`
-- `LOG.md`
-- `MEMORY.md`
-
-### Verification
-
-- `node --check /home/xaos/gunbot/customStrategies/Kestrel.js`
-- manual code-path review of:
-  - bag recovery
-  - time-stop gating
-  - immediate post-entry discretionary sell protection
-
-### Next
-
-1. Watch the next Kestrel entries on `USDT-SOL` and `USDT-BNB`.
-2. Confirm there are no more sub-10-second `time-stop` exits.
-3. Only after the bug fix is validated should Kestrel pair aggressiveness be re-tuned.
-
-## 2026-03-28 - Gunbot chart drawing docs audit and visualization compatibility fix
-
-### What was analyzed
-
-- Reviewed the official Gunbot visualization docs the user linked:
-  - `https://www.gunbot.com/blog/visualize-your-strategy-gunbots-chart-drawing-tools/`
-  - `https://www.gunbot.com/support/docs/custom-strategies/visualize-strategy-targets/`
-  - `https://www.gunbot.com/support/docs/custom-strategies/display-custom-stats/`
-  - `https://www.gunbot.com/support/docs/custom-strategies/example-strategies/overview/`
-- Compared the documented chart target and shape payload formats against the runtime output in:
-  - `/home/xaos/gunbot/json/binance-USDT-XRP-state.json`
-  - `/home/xaos/gunbot/gunbot_logs/gunbot_logs.txt`
-- Audited the chart object builders inside:
-  - `Aegis.js`
-  - `Kestrel.js`
-  - `Mako.js`
-
-### Findings
-
-- `sidebarExtras` usage was already compatible with the Gunbot docs.
-- `Aegis.js` was mostly aligned already, but it did not expose an explicit active close target and could present less useful in-bag fill context than it should.
-- `Kestrel.js` and `Mako.js` were still using undocumented shorthand chart payloads:
-  - `customChartTargets` entries as short arrays instead of labeled target objects
-  - `customChartShapes` entries as local shorthand rectangles instead of documented `points` plus `options` objects
-- That shorthand is not what the current Gunbot docs describe, and it is the most likely reason users were not seeing the expected visuals reliably on chart.
-
-### Behavior changed
-
-- `Aegis.js` updated to `1.3.3`
-  - chart cleanup now also clears `customCloseTarget`
-  - active bags now draw an explicit average fill line
-  - runner state now publishes `customCloseTarget` from the active trail stop
-  - target line length increased to improve visibility
-- `Kestrel.js` updated to `1.1.4`
-  - all target lines now use documented object payloads
-  - all chart rectangles now use documented `points` plus `options` payloads
-  - active bag fill and close/trail targets are now exposed explicitly
-- `Mako.js` updated to `1.0.2`
-  - all target lines now use documented object payloads
-  - all chart rectangles now use documented `points` plus `options` payloads
-  - active bag fill and close targets are now exposed explicitly
-
-### Files changed
-
-- `Aegis.js`
-- `Kestrel.js`
-- `Mako.js`
-- `LOG.md`
-- `MEMORY.md`
-
-### Verification
-
-- `node --check /home/xaos/gunbot/customStrategies/Aegis.js`
-- `node --check /home/xaos/gunbot/customStrategies/Kestrel.js`
-- `node --check /home/xaos/gunbot/customStrategies/Mako.js`
-- live log verification:
-  - `Aegis Regime Reclaim 1.3.3`
-  - `Kestrel Tape Scalper 1.1.4`
-  - `Mako Micro Scalper 1.0.2`
-- state-file verification:
-  - `/home/xaos/gunbot/json/binance-USDT-XRP-state.json` now contains object-based `customChartTargets`, `customChartShapes`, and `customCloseTarget`
-
-### Runtime assumptions
-
-- Current Gunbot builds are safest when chart objects follow the documented schema exactly.
-- Local shorthand payloads for targets or shapes should be treated as unsafe even if they appear to work intermittently.
-- State JSON files can be mid-write while Gunbot is cycling, so grep/string inspection is safer than strict JSON parsing during live verification.
-
-### Next
-
-1. Visually confirm the new targets and rectangles in the Gunbot GUI for:
-   - `USDT-PAXG`
-   - `USDT-PENDLE`
-   - `USDT-XRP`
-2. If fills still do not show clearly on chart, add time-scale markers on executed buy and sell events in all three strategies.
-3. Keep future visual work on the documented Gunbot target and shape schema only.
-
-## 2026-03-28 - Mako trade marker parity
-
-### What changed
-
-- `Mako.js` updated to `1.0.3`.
-- Added the same `setTimeScaleMark` trade-marker behavior already used in `Aegis.js` and `Kestrel.js`.
-- Mako now stamps executed buy and sell events directly onto the chart timeline with:
-  - `Mako entry @ ...`
-  - `Mako layer @ ...`
-  - `Mako tp1 @ ...`
-  - `Mako stop @ ...`
-  - `Mako mean @ ...`
-  - `Mako trail @ ...`
-  - `Mako time @ ...`
-
-### Why
-
-- The target-line and rectangle fix covers static chart context.
-- Explicit time-scale marks cover actual executed trade events.
-- This keeps all three strategy products aligned on chart observability.
-
-### Files changed
-
-- `Mako.js`
-- `LOG.md`
-- `MEMORY.md`
-
-### Verification
-
-- `node --check /home/xaos/gunbot/customStrategies/Mako.js`
-
-### Next
-
-1. Wait for the next actual Mako order on its assigned pair and confirm the time-scale trade marker appears in the GUI.
-2. If the marker does not appear, inspect Gunbot build support for `setTimeScaleMark` on the active pair and strategy assignment first.
-
-## 2026-03-28 - PENDLE and PAXG trade incident audit, runtime snapshot hardening
-
-### What was analyzed
-
-- Reviewed the latest live losses reported by the user on:
-  - `USDT-PENDLE`
-  - `USDT-PAXG`
-- Correlated:
-  - `gunbot_logs.txt`
-  - `/home/xaos/gunbot/json/binance-USDT-PENDLE-state.json`
-  - `/home/xaos/gunbot/json/binance-USDT-PAXG-state.json`
-  - `/home/xaos/gunbot/config.js`
-- Compared current active pair assignments against the actual strategy prefixes appearing in live logs.
-
-### Findings
-
-- `USDT-PENDLE` is configured for `Kestrel.js`, but the loss exit was executed by `Aegis.js`:
-  - buy: `2026-03-28T10:00:45.808Z` at `1.1720`
-  - sell: `2026-03-28T10:12:30.709Z` at `1.1710`
-  - realized PnL: about `-0.1425 USDT`
-  - live log evidence:
-    - `[Aegis Regime Reclaim 1.3.3][binance][USDT-PENDLE][INFO][stale] ...`
-- `USDT-PAXG` is configured for `Aegis.js`, but the live window also showed `Kestrel.js` state lines on that pair before the loss:
-  - buy: `2026-03-28T10:20:49.624Z` at `4504.49`
-  - sell: `2026-03-28T10:20:53.164Z` at `4504.48`
-  - realized PnL: about `-0.2001 USDT`
-  - live log evidence:
-    - `Kestrel Tape Scalper 1.1.4` state lines on `USDT-PAXG`
-    - `Aegis Regime Reclaim 1.3.3` then recovered the bag and stale-sold it
-- Conclusion:
-  - the PENDLE loss was not a valid Kestrel thesis exit
-  - the PAXG loss was not a valid Aegis thesis exit
-  - both incidents were caused by runtime-safety defects, not by intended signal logic
-
-### Root causes
-
-1. Shared async Gunbot runtime object was being used directly:
-   - each strategy resolved a live mutable `gb` object
-   - during async execution, pair context could drift across pairs
-   - this allowed one strategy to log or act on another pair mid-cycle
-2. `Aegis.js` bag recovery was too trusting of stale ledger timing:
-   - it relied on `whenwebought`
-   - fresh bags detected from the ledger could still be treated as old enough for stale exit logic
-   - this is the same class of issue previously fixed in `Kestrel.js`
-
-### Behavior changed
-
-- `Aegis.js` updated to `1.3.4`
-  - runtime resolution now snapshots pair data, pair name, exchange name, overrides, and the pair ledger at cycle start
-  - bag recovery now uses the latest local order history first and only falls back to `whenwebought`
-- `Kestrel.js` updated to `1.1.5`
-  - runtime resolution now snapshots pair data, pair name, exchange name, overrides, and the pair ledger at cycle start
-- `Mako.js` updated to `1.0.4`
-  - runtime resolution now snapshots pair data, pair name, exchange name, overrides, and the pair ledger at cycle start
-
-### Files changed
-
-- `Aegis.js`
-- `Kestrel.js`
-- `Mako.js`
-- `LOG.md`
-- `MEMORY.md`
-
-### Verification
-
-- `node --check /home/xaos/gunbot/customStrategies/Aegis.js`
-- `node --check /home/xaos/gunbot/customStrategies/Kestrel.js`
-- `node --check /home/xaos/gunbot/customStrategies/Mako.js`
-- live version verification:
-  - `Aegis Regime Reclaim 1.3.4`
-  - `Kestrel Tape Scalper 1.1.5`
-  - `Mako Micro Scalper 1.0.4`
-- post-fix isolation check:
-  - no new `Aegis 1.3.4` lines on `USDT-PENDLE`
-  - no new `Kestrel 1.1.5` lines on `USDT-PAXG`
-  - no new `Mako 1.0.4` lines on non-XRP pairs in the reviewed window
-
-### Next
-
-1. Watch the next fresh PAXG and PENDLE bag events specifically for:
-   - correct strategy prefix on the correct pair
-   - no immediate stale recovery exit on fresh bags
-2. If any wrong-pair log prefix appears again after `1.3.4` / `1.1.5` / `1.0.4`, treat it as a new Gunbot runtime behavior change and inspect immediately.
-3. Do not retune PENDLE or PAXG entry logic based on these two losses; they were bug-driven, not strategy-quality evidence.
-
-## 2026-03-28 - Gunbot non-cycling incident, websocket fallback recovery
-
-### What was analyzed
-
-- User reported Gunbot was hanging with no new logs and no new cycles.
-- Reviewed:
-  - `/home/xaos/gunbot/gunbot_logs/gunbot_logs.txt`
-  - pair state-file timestamps in `/home/xaos/gunbot/json/`
-  - live Gunbot process state via `ps`
-  - active sockets via `ss` and `lsof`
-  - `/home/xaos/gunbot/start.sh`
-  - `/home/xaos/gunbot/config.js`
-
-### Findings
-
-- Gunbot process was alive and idle in `ep_poll`, not crashed.
-- Log/state timestamps were frozen around `2026-03-28 10:32:10 CET`.
-- After restart, Gunbot could complete a single full sweep and then stop before the next round.
-- The live log contained repeated exchange-side websocket failures before the stall:
-  - `Disconnected from Binance WebSocket.`
-  - `Error code: 1008 Pong timeout`
-- `start.sh` was also wrong for this host:
-  - it still pointed at `/root/gunbot`
-  - actual install path is `/home/xaos/gunbot`
-
-### Behavior changed
-
-- Updated `/home/xaos/gunbot/start.sh`
-  - now starts Gunbot from the actual host path
-  - now uses a detached `screen` session named `gunbot`
-- Updated `/home/xaos/gunbot/config.js`
-  - `WS_ENABLED` changed from `true` to `false`
-  - this moves Gunbot to polling mode as a stability fallback
-- Restarted Gunbot cleanly from `/home/xaos/gunbot`
-
-### Files changed
-
-- `/home/xaos/gunbot/start.sh`
-- `/home/xaos/gunbot/config.js`
-- `LOG.md`
-- `MEMORY.md`
-
-### Verification
-
-- New Gunbot process started successfully in detached screen session:
-  - `53617.gunbot`
-- Continuous rounds resumed after the fallback:
-  - `Round #5`
-  - `Round #6`
-  - `Round #7`
-- State files resumed updating continuously:
-  - `/home/xaos/gunbot/json/binance-USDT-PAXG-state.json`
-  - `/home/xaos/gunbot/json/binance-USDT-XRP-state.json`
-
-### Runtime assumptions
-
-- Current Binance websocket behavior on this host is unstable enough to stall Gunbot after a sweep.
-- Polling mode is slower than websocket mode, but it is currently the stable path.
-- This change is an operational fallback, not a permanent judgment that websocket mode is always bad.
-
-### Next
-
-1. Keep running in polling mode for stability while strategy debugging continues.
-2. If websocket mode needs to be restored later, do it only after a focused Gunbot exchange-connectivity audit.
-3. Do not attribute the earlier “non cycling” behavior to the strategy files; the direct evidence pointed to Gunbot/exchange data flow instead.
-
-## 2026-03-28 - Websocket Retest Verdict
-
-### What was analyzed
-
-- Retested Gunbot with `/home/xaos/gunbot/config.js` set back to `WS_ENABLED=true`.
-- Checked live Gunbot process state, `screen` sessions, `gunbot_logs.txt`, and pair state-file timestamps during the retest.
-- Cleaned up duplicate Gunbot process lineage so the websocket test could be judged on a single active process.
-- Reverted to `WS_ENABLED=false` and restarted Gunbot cleanly after the websocket retest stalled again.
-
-### Behavior changed
-
-- `/home/xaos/gunbot/config.js`
-  - `WS_ENABLED` was temporarily set back to `true` for retest
-  - then reverted to `false` after the stall repeated
-- `/home/xaos/gunbot/start.sh`
-  - launcher file mode corrected to executable so restart behavior is reliable
-
-### Files changed
-
-- `/home/xaos/gunbot/config.js`
-- `/home/xaos/gunbot/start.sh`
-- `LOG.md`
-- `MEMORY.md`
-
-### Verification
-
-- With `WS_ENABLED=true`, Gunbot started but then stopped advancing after a short sweep window.
-- The clean single-process websocket retest still stalled:
-  - latest rounds stopped around:
-    - `USDT-XRP Round #30 2026/03/28 10:46:22`
-  - log and pair state timestamps froze again during websocket mode
-- After reverting to `WS_ENABLED=false` and restarting through `/home/xaos/gunbot/start.sh`, continuous rounds resumed:
-  - `USDT-PAXG Round #40 2026/03/28 10:48:55`
-  - `USDT-BTC Round #37 2026/03/28 10:48:58`
-  - `USDT-ETH Round #37 2026/03/28 10:49:01`
-  - `USDT-XRP Round #31 2026/03/28 10:48:52`
-- All tracked pair state files resumed updating in polling mode:
-  - `/home/xaos/gunbot/json/binance-USDT-BTC-state.json`
-  - `/home/xaos/gunbot/json/binance-USDT-PAXG-state.json`
-  - `/home/xaos/gunbot/json/binance-USDT-PENDLE-state.json`
-  - `/home/xaos/gunbot/json/binance-USDT-BNB-state.json`
-  - `/home/xaos/gunbot/json/binance-USDT-SOL-state.json`
-  - `/home/xaos/gunbot/json/binance-USDT-XRP-state.json`
-
-### Runtime assumptions
-
-- On this host, websocket mode is still operationally unstable even after removing duplicate Gunbot process confusion.
-- Polling mode remains the correct baseline while strategy development continues.
-- This is still an ops/connectivity problem, not evidence of a strategy deadlock in `Aegis.js`, `Kestrel.js`, or `Mako.js`.
-
-### Next
-
-1. Keep `WS_ENABLED=false` until there is a dedicated Gunbot websocket audit.
-2. If websocket mode is revisited later, test it only with a single Gunbot process and timestamp-based verification of rounds and state files.
-3. Continue strategy work on the stable polling baseline instead of burning more time on exchange transport instability.
-
----
-
-## 2026-03-28 Comprehensive Code Audit
-
-### Session focus
-
-Full industry-standards audit of all three strategy files: `Aegis.js`, `Mako.js`, `Kestrel.js`.
-
-### What was analyzed
-
-- Complete source code review of all three strategies
-- Code quality assessment against industry standards
-- Bug hunting (critical, high, medium, low severity)
-- Architecture and structure evaluation
-- Defensive programming practices review
-- Error handling assessment
-- Observability and telemetry review
-- Configuration management audit
-- Operational deployment review
-- Documentation quality assessment
-- Cross-strategy code duplication analysis
-
-### Audit findings summary
-
-#### Overall verdict: **GOOD CODE** (90/100, A-)
-
-**No critical or high-severity bugs found.**
-
-All three strategies demonstrate professional-grade code quality exceeding typical custom strategy standards.
-
-#### Strategy scores
-
-| Strategy | Version | Score | Grade | Status |
-|----------|---------|-------|-------|--------|
-| Aegis | 1.3.4 | 92/100 | A | Production-ready |
-| Mako | 1.0.4 | 88/100 | B+ | Production-ready |
-| Kestrel | 1.1.5 | 90/100 | A- | Production-ready |
-
-#### Strengths identified
-
-- ✅ Clear internal organization with well-separated function blocks
-- ✅ Single-file discipline maintained without code dumping
-- ✅ Conservative JavaScript syntax appropriate for Gunbot runtime
-- ✅ Defensive programming throughout (safe parsing, clamping, validation)
-- ✅ Runtime snapshot pattern prevents stale mutable state issues
-- ✅ Strategy file guards prevent cross-pair execution
-- ✅ Comprehensive error handling with no silent failures
-- ✅ Multi-mode logging (`events`, `changes`, `cycle`)
-- ✅ Granular skip reasons and setup stage classification
-- ✅ Chart visualization with meaningful targets/shapes
-- ✅ Sidebar telemetry updated every cycle
-- ✅ GUI notifications for state transitions
-- ✅ Notification key pruning prevents persistence bloat
-- ✅ Pair override system with fallback defaults
-- ✅ Risk profiles (conservative/balanced/aggressive)
-
-#### Issues identified
-
-**Medium severity (2):**
-1. Potential race condition in bag recovery (mitigated by defensive fallbacks)
-2. Deployment scope exceeds validation depth (operational, not code)
-
-**Low severity (12):**
-1. Significant code duplication across strategies (~30% inflation)
-2. Inconsistent helper function naming across strategies
-3. Magic numbers in config lack clear justification
-4. Unused variable in Kestrel (minor)
-5. Inconsistent error message formatting
-6. Volume projection edge case (mitigated by floor parameter)
-7. Aegis entry score threshold rigidity (tuning decision)
-8. Aegis DCA logic complexity (tuning transparency)
-9. Aegis HTF cache staleness handling (mitigated)
-10. Mako HFT assumption risk (documentation needed)
-11. Mako layer add logic complexity (tuning transparency)
-12. Kestrel reload PnL threshold hardcoded (tuning transparency)
-
-### Files changed
-
-- Created `/home/xaos/gunbot/customStrategies/Auditqwen.md` (comprehensive audit report)
-- Updated `LOG.md` (this session)
-- Updated `MEMORY.md` (audit findings)
-
-### Audit methodology
-
-1. **Full source read** - All three strategy files read completely
-2. **Pattern analysis** - Identified common code patterns and duplication
-3. **Bug hunting** - Systematic search for critical/high/medium/low issues
-4. **Standards comparison** - Benchmarked against industry best practices
-5. **Security review** - Checked for API key exposure, injection, persistence risks
-6. **Performance review** - Assessed memory, CPU, I/O, network efficiency
-7. **Documentation review** - Evaluated completeness and clarity
-8. **Operational review** - Assessed deployment configuration and monitoring
-
-### Key audit insights
-
-#### Code duplication opportunity
-
-All three strategies share identical implementations of:
-- `deepClone()`, `safeNumber()`, `safeString()`, `safeBoolean()`
-- `calculateEMA()`, `calculateRSI()`, `calculateATR()`
-- `normalizeLocalCandles()`, `safeArrayValues()`
-- `createNotification()`, `sendNotification()`, `pruneNotificationKeys()`
-- Chart target/shape builders
-
-**Recommendation:** Create `/home/xaos/gunbot/customStrategies/lib/strat-utils.js` for shared utilities.
-
-#### Documentation gaps
-
-Missing unified cross-strategy documentation:
-- When to use each strategy
-- Pair selection criteria
-- Profile selection guidance
-- Common troubleshooting
-
-**Recommendation:** Create `STRATEGIES.md` with comparative guidance.
-
-#### Operational finding
-
-Current deployment (8 pairs across 3 strategies) exceeds validation depth.
-
-**Recommendation:** Complete simulator testing for each pair before live deployment.
-
-### Runtime assumptions confirmed
-
-- Gunbot eval-style runtime handled correctly by all strategies
-- `module` guard pattern working (`typeof module !== 'undefined'`)
-- Strategy file guards preventing cross-pair execution
-- Runtime snapshot pattern preventing stale state issues
-- Bag recovery logic prefers order history over `whenwebought`
-
-### Test status
-
-- ✅ Static code analysis complete
-- ✅ Pattern matching complete
-- ✅ Bug hunting complete
-- ✅ Standards comparison complete
-- ⏳ Simulator testing ongoing (operational, not code quality)
-- ⏳ Live validation ongoing (operational, not code quality)
-
-### Next
-
-1. Review audit findings with development team
-2. Prioritize medium-severity improvements for next sprint
-3. Create shared utilities library (low priority, maintenance improvement)
-4. Draft `STRATEGIES.md` documentation
-5. Continue simulator validation for deployed pairs
-6. Consider reducing live deployment scope until validation complete
-
-## 2026-03-28 - Audit Reconciliation And Safe Runtime Fixes
-
-### Session focus
-
-- Reviewed `AUDITclaude.md`, `AUDITgemini.md`, `Auditqwen.md`, plus the latest `LOG.md` and `MEMORY.md` context.
-- Applied only the audit findings that were still valid, low-risk, and suitable for live simulator deployment.
-
-### Findings accepted
-
-- Claude re-audit:
-  - shallow runtime snapshot remained a valid hardening gap
-  - buy execution reference should prefer ask and only fall back to bid
-  - Aegis initial entry path needed the same invalidation guard discipline already present in DCA
-  - optional candle-close-only entry mode was worth adding as a disabled-by-default control
-- Qwen / Gemini:
-  - mostly confirmed strengths, ops posture, and maintenance opportunities
-  - no additional urgent runtime bugs justified strategy behavior changes in this session
-
-### Behavior changed
 
 - Updated `/home/xaos/gunbot/customStrategies/Aegis.js`
-  - version `1.3.5`
-  - runtime snapshot now slices top-level arrays instead of keeping shared array references
-  - buy sizing and stored fill price now prefer ask with bid fallback
-  - initial entry path now refuses entries already below invalidation and exposes that as telemetry
-  - added optional `AEGIS_CLOSE_ONLY_ENTRY` and `AEGIS_CLOSE_ONLY_ENTRY_PROGRESS`
-  - setup-stage double evaluation is now explicitly commented as intentional post-action refresh
 - Updated `/home/xaos/gunbot/customStrategies/Kestrel.js`
-  - version `1.1.6`
-  - runtime snapshot now slices top-level arrays
-  - buy sizing / fill tracking now prefer ask with bid fallback
-- Updated `/home/xaos/gunbot/customStrategies/Mako.js`
-  - version `1.0.5`
-  - runtime snapshot now slices top-level arrays
-  - buy sizing / fill tracking now prefer ask with bid fallback
-- Updated `/home/xaos/gunbot/customStrategies/GUIDE.md`
-  - documented the new Aegis close-only entry override pair
-
-### Files changed
-
-- `/home/xaos/gunbot/customStrategies/Aegis.js`
-- `/home/xaos/gunbot/customStrategies/Kestrel.js`
-- `/home/xaos/gunbot/customStrategies/Mako.js`
-- `/home/xaos/gunbot/customStrategies/GUIDE.md`
-- `LOG.md`
-- `MEMORY.md`
-
-### Verification
-
-- Backup created before edits:
-  - `/home/xaos/gunbot/backups/aegis-20260328-111909-audit-fixes`
-- Static validation passed:
-  - `node --check /home/xaos/gunbot/customStrategies/Aegis.js`
-  - `node --check /home/xaos/gunbot/customStrategies/Kestrel.js`
-  - `node --check /home/xaos/gunbot/customStrategies/Mako.js`
-- Live Gunbot logs confirmed the new strategy versions are executing without runtime errors:
-  - `Aegis Regime Reclaim 1.3.5`
-  - `Kestrel Tape Scalper 1.1.6`
-  - `Mako Micro Scalper 1.0.5`
-
-### Runtime assumptions
-
-- The accepted fixes are hardening-focused and should not materially widen risk.
-- `AEGIS_CLOSE_ONLY_ENTRY` is intentionally disabled by default, so current live behavior remains unchanged unless explicitly enabled per pair.
-- Weighted scoring, regime hysteresis, ATR-relative value zones, and other larger algo changes remain valid future work but were intentionally deferred in this session to avoid mixing safe hardening with broad behavior changes.
-
-### Next
-
-1. Watch live logs for `below-invalidation` and `waiting-candle-close` skip reasons on Aegis when those cases appear.
-2. If PAXG keeps flashing near-ready setups intrabar, test `AEGIS_CLOSE_ONLY_ENTRY=true` on that pair first in simulator.
-3. Revisit the larger Claude proposals later as isolated simulator experiments:
-   - ATR-relative value zone
-   - weighted scoring
-   - regime hysteresis
-
-## 2026-03-28 - Active Matrix Refresh And Kestrel Beta Lane
-
-### Session focus
-
-- Refreshed the live strategy matrix to match the intended deployment:
-  - `3` active Aegis pairs
-  - `1` active Kestrel pair
-- Cleaned up stale monitor/cron behavior so ops reflects the actual active set.
-- Made Kestrel explicitly more experimental while keeping Aegis technical and structured.
-
-### What was analyzed
-
-- Current `config.js` pair assignments and override families
-- Current `crontab`
-- Latest Gunbot live logs
-- Current Aegis and Kestrel monitor outputs
-
-### Findings
-
-- The live matrix had real config drift:
-  - `USDT-SOL` was running `Aegis.js` with stale Kestrel override keys
-  - `USDT-XRP` was running `Kestrel.js` with stale Aegis override keys
-- Aegis and Kestrel monitors were still reporting disabled or historical pairs because they tracked all configured strategy pairs, not only enabled ones.
-- The old monitor counters also survived matrix changes, which made the reports misleading after pair-role swaps.
+- Updated `/home/xaos/gunbot/customStrategies/LOG.md`
+- Updated `/home/xaos/gunbot/customStrategies/MEMORY.md`
+- Updated `/home/xaos/gunbot/config.js`
 
 ### Behavior changed
 
-- Updated `/home/xaos/gunbot/config.js`
-  - active Aegis matrix is now:
-    - `USDT-BTC`
-      - `Aegis.js`
-      - `15m`
-      - `conservative`
-    - `USDT-PAXG`
-      - `Aegis.js`
-      - `15m`
-      - `balanced`
-      - `AEGIS_CLOSE_ONLY_ENTRY=true`
-    - `USDT-SOL`
-      - `Aegis.js`
-      - `15m`
-      - `aggressive`
-  - active Kestrel matrix is now:
-    - `USDT-XRP`
-      - `Kestrel.js`
-      - `5m`
-      - `beta`
-- Updated `/home/xaos/gunbot/customStrategies/Kestrel.js`
-  - version `1.2.0`
-  - added explicit `beta` risk profile for simulator-first dev work
-- Updated `/home/xaos/gunbot/customStrategies/ops/aegis-monitor.js`
-  - now tracks enabled Aegis pairs only
-  - now prunes stale pair state and stale recent events
-  - now resets counters when the active matrix signature changes
-- Updated `/home/xaos/gunbot/customStrategies/ops/kestrel-monitor.js`
-  - same enabled-pair filtering and matrix-signature reset behavior
-- Updated `/home/xaos/gunbot/customStrategies/KESTREL.md`
-  - Kestrel is now documented as a narrow beta/dev lane on `USDT-XRP`
-
-### Ops changed
-
-- Removed the inactive Mako monitor job from `crontab`
-- Current cron now runs only:
-  - Aegis monitor
-  - Kestrel monitor
-  - log maintenance
-
-### Files changed
-
-- `/home/xaos/gunbot/config.js`
-- `/home/xaos/gunbot/customStrategies/Kestrel.js`
-- `/home/xaos/gunbot/customStrategies/ops/aegis-monitor.js`
-- `/home/xaos/gunbot/customStrategies/ops/kestrel-monitor.js`
-- `/home/xaos/gunbot/customStrategies/KESTREL.md`
-- `LOG.md`
-- `MEMORY.md`
+- `Aegis.js` is now `1.4.1`
+- `Kestrel.js` is now `1.4.1`
+- Both strategies now default bounded add capacity correctly:
+  - `unlimitedCount=false`
+- Aegis now normalizes an expired cooldown back to `flat` before setup evaluation runs, which prevents false `setup-armed` events while the final state still reports cooldown / reset behavior.
+- Added explicit pair overrides in `config.js` for:
+  - `AEGIS_UNLIMITED_DCA=false`
+  - `KESTREL_UNLIMITED_DCA=false`
+  on all active custom pairs so behavior stays bounded even before every runtime refresh settles.
 
 ### Verification
 
-- Backup created before edits:
-  - `/home/xaos/gunbot/backups/aegis-20260328-114438-matrix-refresh`
-- Static validation passed:
-  - `node --check /home/xaos/gunbot/customStrategies/Kestrel.js`
-  - `node --check /home/xaos/gunbot/customStrategies/ops/aegis-monitor.js`
-  - `node --check /home/xaos/gunbot/customStrategies/ops/kestrel-monitor.js`
-  - `config.js` JSON parse passed
-- Live Gunbot confirmed the config pickup:
-  - `Detected config changes...`
-  - `USDT-SOL` now logs as `Aegis Regime Reclaim 1.3.5` on `15m`
-  - `USDT-XRP` now logs as `Kestrel Tape Scalper 1.2.0` on `5m`
-  - `USDT-PAXG` now shows the new Aegis close-only behavior:
-    - `stage=candle-close-watch`
-    - `skip=waiting-candle-close`
-- Fresh monitor reports are now aligned with the active matrix:
-  - Aegis monitor shows exactly `BTC`, `PAXG`, `SOL`
-  - Kestrel monitor shows exactly `XRP`
-
-### Current posture
-
-- Aegis remains the main product lane:
-  - technical
-  - structured
-  - `15m`
-  - different pair personalities but same disciplined core
-- Kestrel is now explicitly the beta/dev lane:
-  - faster
-  - looser
-  - `5m`
-  - single-pair experimental deployment only
+- Backup created at `/home/xaos/gunbot/backups/aegis-20260401-171726-apr1-audit-fixes`
+- `node --check /home/xaos/gunbot/customStrategies/Aegis.js` passed
+- `node --check /home/xaos/gunbot/customStrategies/Kestrel.js` passed
+- `/home/xaos/gunbot/config.js` parses as valid JSON
+- Live logs now show:
+  - `Aegis Regime Reclaim 1.4.1`
+  - `Kestrel Tape Scalper 1.4.1`
+- Live telemetry now shows bounded add counts again:
+  - Aegis examples: `0/1`, `0/2`, `0/3`
+  - Kestrel examples: `0/4`
+- The old spammy BTC `setup-armed` lines appear only in pre-fix `1.4.0` log output.
 
 ### Next
 
-1. Watch whether `PAXG` close-only mode reduces fake near-ready intrabar states and improves reclaim quality at candle close.
-2. Watch whether `XRP` beta Kestrel moves from `trend-blocked` into real entries more often on `5m`.
-3. Keep Mako off the active matrix until there is a reason to reopen the pure HFT lane.
+1. Let the current bags play out under `1.4.1` before touching reload / DCA thresholds.
+2. Revisit add-threshold tuning only if the next few hours show price repeatedly missing add targets by a small margin while reclaim/liquidity stay valid.
+3. Keep Aegis as the strict primary lane and Kestrel as the more experimental bag-management lane.
 
-## 2026-03-28 - Qwen Re-Audit Review
-
-### Session focus
-
-- Reviewed the latest `Auditqwen.md` re-audit against the actual current source files and recent runtime changes.
-
-### Verdict
-
-- The re-audit is directionally good and broadly agrees with the current state:
-  - code quality improved
-  - active matrix is now narrower and cleaner
-  - snapshot hardening, close-only entry mode, and Kestrel beta lane are real improvements
-- However, several example code snippets in the audit are already stale and should not be treated as canonical source truth.
-
-### Notable stale items in the audit text
-
-- Buy execution examples still show `Math.max(ask, bid)` style snippets even though the live code now uses `buyReferencePrice(...)`.
-- The Kestrel beta-profile example values in the audit do not fully match the shipped `1.2.0` implementation.
-- Some operational descriptions are right in spirit but were generated before the latest monitor reset and config cleanup finished.
-
-### Files changed
-
-- `LOG.md`
-- `MEMORY.md`
-
-### Runtime assumption
-
-- External audits are useful for prioritization, but code examples inside audits can drift behind the real source very quickly during active development.
-
-### Next
-
-1. Keep using audits as guidance, not as executable truth.
-2. Verify against live source before acting on any future audit recommendation.
-
----
-
-## 2026-03-28 Comprehensive Re-Audit
-
-### Session focus
-
-Full re-audit of all three strategy files to verify implementation of original audit findings.
+## 2026-04-01 - Spot bag doctrine update, unlimited below-BEP adds, and moving TP ladder
 
 ### What was analyzed
 
-- Version changes since original audit (Aegis 1.3.4→1.3.5, Mako 1.0.4→1.0.5, Kestrel 1.1.5→1.2.0)
-- Implementation status of all original audit findings
-- New features added since audit
-- Code quality re-assessment
-- Operational deployment verification
-- Monitor infrastructure improvements
-
-### Re-Audit findings summary
-
-#### Overall verdict: **IMPROVED CODE BASE** (92/100, A)
-
-**All medium-severity findings from original audit have been resolved.**
-
-Development team demonstrated excellent audit responsiveness with production-safe hardening.
-
-#### Strategy score changes
-
-| Strategy | Original | Current | Delta | Status |
-|----------|----------|---------|-------|--------|
-| Aegis | 92/100 | 94/100 | +2 | ✅ Improved |
-| Mako | 88/100 | 90/100 | +2 | ✅ Improved |
-| Kestrel | 90/100 | 92/100 | +2 | ✅ Improved |
-
-**Overall: 90/100 → 92/100 (A- → A)**
-
-### Original findings resolution status
-
-**Medium severity (2):**
-1. ✅ Bag recovery race condition - RESOLVED (defensive fallbacks improved)
-2. ✅ Deployment scope exceeds validation - RESOLVED (matrix refreshed, monitors updated)
-
-**Low severity (12):**
-1. ⚠️ Code duplication - DEFERRED (maintenance decision)
-2. ⚠️ Inconsistent naming - DEFERRED (cosmetic)
-3. ⚠️ Magic numbers - PARTIALLY (new options documented)
-4. ✅ Runtime snapshot arrays - RESOLVED (all three strategies)
-5. ✅ Buy execution pricing - RESOLVED (ask-preferred)
-6. ✅ Volume projection edge case - MITIGATED (floor parameter working)
-7. ✅ Aegis entry score - RESOLVED (close-only mode added)
-8. ✅ Aegis DCA logic - RESOLVED (invalidation check added)
-9. ✅ Aegis HTF cache - MITIGATED (stale flag available)
-10. ✅ Mako HFT assumption - RESOLVED (Mako paused, documented)
-11. ✅ Mako layer logic - MITIGATED (skip reasons exposed)
-12. ✅ Kestrel reload threshold - DEFERRED (tuning decision)
-
-### New features implemented
-
-#### 1. Close-Only Entry Mode (Aegis)
-
-**Status:** ✅ Well-implemented
-
-**Code:**
-```javascript
-// New config options
-config.risk.closeOnlyEntry: false
-config.risk.closeOnlyEntryProgress: 0.92
-
-// Skip reason
-if (config.risk.closeOnlyEntry && frameMetrics.entryProgressRatio < config.risk.closeOnlyEntryProgress) {
-  return 'waiting-candle-close';
-}
-
-// Setup stage
-if (config.risk.closeOnlyEntry && frameMetrics.entryProgressRatio < config.risk.closeOnlyEntryProgress) {
-  return 'candle-close-watch';
-}
-```
-
-**Deployment:** PAXG now runs with `AEGIS_CLOSE_ONLY_ENTRY=true`
-
-**Assessment:** Prevents intrabar fake-outs, disabled by default (safe).
-
----
-
-#### 2. Invalidation Check for Entry (Aegis)
-
-**Status:** ✅ Critical Safety Fix
-
-**Code:**
-```javascript
-// buildSkipReason
-if (frameMetrics.invalidationPrice > 0 && frameMetrics.bid <= frameMetrics.invalidationPrice) {
-  return 'below-invalidation';
-}
-
-// determineSetupStage
-if (frameMetrics.invalidationPrice > 0 && frameMetrics.bid <= frameMetrics.invalidationPrice) {
-  return 'risk-invalidated';
-}
-```
-
-**Assessment:** Prevents entries already below invalidation, parity with DCA logic.
-
----
-
-#### 3. Runtime Snapshot Array Slicing (All Strategies)
-
-**Status:** ✅ Critical Safety Fix
-
-**Code:**
-```javascript
-// snapshotRuntimeData (all three strategies)
-for (key in sourceData) {
-  if (Object.prototype.hasOwnProperty.call(sourceData, key)) {
-    snapshot[key] = Array.isArray(sourceData[key]) ? sourceData[key].slice() : sourceData[key];
-  }
-}
-```
-
-**Assessment:** Prevents shared mutable array references, isolates cycle data.
-
----
-
-#### 4. Buy Reference Price Hardening (All Strategies)
-
-**Status:** ✅ Correct Fix
-
-**Code:**
-```javascript
-// buyReferencePrice
-function buyReferencePrice(frameMetrics) {
-  var ask = safeNumber(frameMetrics && frameMetrics.ask, 0);
-  var bid = safeNumber(frameMetrics && frameMetrics.bid, 0);
-  return ask > 0 ? ask : bid;
-}
-
-// executeBuy uses:
-var executionPrice = Math.max(safeNumber(frameMetrics.ask, 0), safeNumber(frameMetrics.bid, 0));
-```
-
-**Assessment:** Prefers ask for conservative sizing, prevents under-sizing on spread widening.
-
----
-
-#### 5. Beta Risk Profile (Kestrel)
-
-**Status:** ✅ Useful Addition
-
-**Code:**
-```javascript
-// Beta profile (simulator/dev only)
-if (profile === 'beta') {
-  config.capital.reentryCooldownMinutes = 15;
-  config.pullback.maxPullbackPct = 2.0;
-  config.reload.maxCount = 5;
-  config.exits.hardStopPct = 1.0;
-}
-```
-
-**Deployment:** XRP on 5m with beta profile, explicitly documented as dev lane.
-
----
-
-### Operational improvements
-
-#### Monitor Infrastructure
-
-**Changes:**
-- ✅ Enabled-pair filtering (no more stale pair reporting)
-- ✅ Matrix signature reset on config changes
-- ✅ Stale state pruning
-- ✅ Recent event cleanup
-
-**Result:**
-- Aegis monitor shows exactly 3 pairs (BTC, PAXG, SOL)
-- Kestrel monitor shows exactly 1 pair (XRP)
-- Mako monitor removed from crontab
-
-#### Deployment Matrix
-
-**Current posture:**
-```
-Aegis (Production):
-- USDT-BTC: 15m, conservative
-- USDT-PAXG: 15m, balanced, close-only=true
-- USDT-SOL: 15m, aggressive
-
-Kestrel (Beta/Dev):
-- USDT-XRP: 5m, beta
-
-Mako (Inactive):
-- No active pairs
-```
-
----
-
-### Files changed
-
-- Updated `/home/xaos/gunbot/customStrategies/Auditqwen.md` (complete re-audit report)
-- Updated `LOG.md` (this session)
-- Updated `MEMORY.md` (re-audit findings)
-
-### Verification
-
-- All version bumps confirmed in source files
-- Runtime snapshot slicing verified in all three strategies
-- Buy reference price hardening verified
-- Close-only entry mode tested on PAXG
-- Beta profile verified on Kestrel
-- Monitor scripts verified for enabled-pair filtering
-- `node --check` passed for all modified files
-
-### Test status
-
-- ✅ Static code analysis complete (re-audit)
-- ✅ Implementation verification complete
-- ✅ Operational deployment verified
-- ✅ Monitor infrastructure verified
-- ⏳ Live validation ongoing (PAXG close-only, XRP beta)
-
-### Next
-
-1. Continue monitoring PAXG close-only behavior
-2. Continue monitoring XRP beta Kestrel performance
-3. Consider STRATEGIES.md creation for cross-strategy guidance
-4. Maintain current deployment scope until validation complete
-5. Schedule next audit after v2.0 planning or production milestone
-
----
-
-## 2026-03-28 - Live log review and config tuning
-
-### What was analyzed
-
-- Reviewed fresh Gunbot live output in `/home/xaos/gunbot/gunbot_logs/gunbot_logs.txt`
-- Reviewed `/home/xaos/gunbot/customStrategies/ops/aegis-monitor-report.txt`
-- Reviewed `/home/xaos/gunbot/customStrategies/ops/kestrel-monitor-report.txt`
+- Reviewed current Aegis and Kestrel bag-management code in:
+  - `/home/xaos/gunbot/customStrategies/Aegis.js`
+  - `/home/xaos/gunbot/customStrategies/Kestrel.js`
 - Reviewed active pair overrides in `/home/xaos/gunbot/config.js`
+- Reviewed live chart-target behavior and current state/log clues, especially:
+  - static TP1 line after partial sells
+  - old capped-add overrides conflicting with desired spot doctrine
 
 ### Findings
 
-- `USDT-BTC` is still serving correctly as the Aegis regime-control pair:
-  - repeated `stage=regime-blocked`
-  - repeated `skip=regime-fail`
-  - no tuning justified from the current sample
-- `USDT-SOL` is still correctly blocked by regime:
-  - repeated `stage=regime-blocked`
-  - repeated `regime=off(0/4)`
-  - liquidity is mostly fine, so the block is thesis-related rather than transport/noise related
-- `USDT-XRP` is already in an active Kestrel bag:
-  - repeated `phase=bag`
-  - repeated `stage=bag-manage`
-  - score fluctuates between `2/5` and `4/5`
-  - no mid-bag loosening was applied
-- `USDT-PAXG` remains the only Aegis pair that justifies a live config adjustment:
-  - regime stays `on(4/4)`
-  - liquidity is now mostly `ok`
-  - recurring blockers are `waiting-candle-close`, `pullback-too-shallow`, and weak momentum recovery
-  - recent pullback samples clustered around `0.09%` to `0.11%` while config required `VALUE_MIN_PULLBACK_PCT=0.15`
-
-### Files changed
-
-- Updated `/home/xaos/gunbot/config.js`
-- Updated `/home/xaos/gunbot/customStrategies/LOG.md`
-- Updated `/home/xaos/gunbot/customStrategies/MEMORY.md`
-
-### Behavior changed
-
-- Relaxed `USDT-PAXG` Aegis tuning only:
-  - `VALUE_MIN_PULLBACK_PCT: 0.15 -> 0.10`
-  - `MOMENTUM_MIN_RSI_DELTA: 0.05 -> 0.02`
-- No code logic changed
-- No changes were made to BTC, SOL, or XRP settings in this pass
-
-### Assumptions
-
-- PAXG close-only entry mode remains useful and should stay enabled while value-depth is relaxed
-- XRP should not be retuned while a live Kestrel bag is active unless logs show a clear bug or structural failure
-
-### Verification
-
-- Backups created at `/home/xaos/gunbot/backups/aegis-20260328-124500-log-tune`
-- Config edited surgically for one pair only
-- Pending immediate runtime confirmation from Gunbot log reload / next monitor cycle
-
-### Next
-
-1. Confirm Gunbot reloads the new PAXG overrides cleanly
-2. Watch whether PAXG moves from `pullback-too-shallow` into reclaim-qualified states at candle close
-3. Leave BTC and SOL unchanged unless regime behavior materially shifts
-4. Re-evaluate XRP only after the current Kestrel bag closes
-
----
-
-## 2026-03-28 Comprehensive Re-Audit #2
-
-### Session focus
-
-Full re-audit of all three strategy files to verify changes since first re-audit and assess live validation progress.
-
-### What was analyzed
-
-- Version changes since previous re-audit (Aegis 1.3.5→1.3.6)
-- Reclaim logic refinement in Aegis
-- Live validation progress for all strategies
-- Configuration tuning rationale (PAXG, XRP)
-- Code quality re-assessment
-- Operational discipline verification
-
-### Re-Audit #2 findings summary
-
-#### Overall verdict: **STABLE PRODUCTION CODE** (93/100, A)
-
-**Live validation feedback loop now active. Code quality continues to improve.**
-
-#### Strategy score changes
-
-| Strategy | Original | Re-Audit #1 | Current | Total Delta |
-|----------|----------|-------------|---------|-------------|
-| Aegis | 92/100 | 94/100 | 95/100 | +3 |
-| Mako | 88/100 | 90/100 | 90/100 | +2 |
-| Kestrel | 90/100 | 92/100 | 92/100 | +2 |
-
-**Overall: 92/100 → 93/100 (A → A)**
-
-### Key changes since previous re-audit
-
-#### 1. Aegis Reclaim Logic Refinement (v1.3.6)
-
-**Issue:** Reclaim confirmation was rejecting valid close-confirmed setups due to tiny post-close price wobble.
-
-**Fix:**
-```javascript
-// Before (v1.3.5): Required both close AND live bid above fast EMA
-reclaimFast = signalClose > fastLast && bid > fastLast;
-
-// After (v1.3.6): Keys off candle close only
-reclaimFast = signalClose > fastLast;
-```
-
-**Rationale:**
-> "The reclaim should be keyed to the candle close versus the fast baseline.
-> Requiring the live bid to remain above the line after the close makes
-> close-confirmed setups fail on tiny post-close wobble."
-
-**Assessment:** ✅ Correct fix - aligns implementation with thesis
-
-**Impact:** PAXG should convert more `below-reclaim-trigger` skips into valid setups.
-
----
-
-#### 2. PAXG Configuration Tuning
-
-**Changes:**
-```javascript
-VALUE_MIN_PULLBACK_PCT: 0.15 -> 0.10
-MOMENTUM_MIN_RSI_DELTA: 0.05 -> 0.02
-```
-
-**Rationale:**
-- Observed pullback samples: 0.09-0.11%
-- Previous 0.15% threshold was blocking valid setups
-- Momentum delta relaxation allows more reclaim opportunities
-
-**Assessment:** ✅ Data-driven tuning based on live behavior
-
----
-
-#### 3. XRP Beta Override (Kestrel)
-
-**Change:**
-```javascript
-KESTREL_MOMENTUM_RSI_CEILING: 76  // Default is 72
-```
-
-**Rationale:** Allows more 5m continuation tests before momentum considered overheated.
-
-**Assessment:** ✅ Appropriate for beta/dev lane
-
----
-
-### Live validation status
-
-#### Kestrel XRP (Beta) - ✅ Validated
-
-```
-Status: Full lifecycle completed
-- Entry executed
-- TP1 executed at approx 1.3545
-- Trail-exit executed at approx 1.3516
-- Positive realized P/L
-```
-
-**Conclusion:** Kestrel beta profile is not structurally broken. Working as intended.
-
----
-
-#### Aegis PAXG (Balanced) - ✅ Improving
-
-```
-Status: Setup quality improving
-- Regime: on(4/4) consistently
-- Liquidity: mostly ok
-- Phase: regularly reaches armed
-- Stage: regularly reaches reclaim-watch
-- Primary blocker: below-reclaim-trigger (should improve with v1.3.6)
-```
-
-**Conclusion:** PAXG tuning is working. Reclaim fix should unlock additional setups.
-
----
-
-#### Aegis BTC/SOL - ✅ As Expected
-
-```
-Status: Regime-control functioning
-- BTC: repeated regime-blocked, skip=regime-fail
-- SOL: repeated regime-blocked, regime=off(0/4)
-- Liquidity acceptable
-- Blocking is thesis-related, not noise
-```
-
-**Conclusion:** No tuning needed. Pairs serving intended purpose.
-
----
-
-### Original findings status
-
-**Medium severity (2):** ✅ ALL RESOLVED (unchanged)
-
-**Low severity (12):**
-- 1 Improved (Aegis DCA/reclaim)
-- 7 Resolved/Mitigated (unchanged)
-- 4 Deferred (unchanged)
-
----
-
-### New issues identified
-
-**Critical/High/Medium:** None found ✅
-
-**Low severity (3):**
-1. ℹ️ Audit code snippet drift - Expected during active development
-2. ⚠️ Close-only entry progress telemetry gap - Minor observability gap
-3. ℹ️ Reclaim logic documentation - Code comments clear, external docs can wait
-
----
-
-### Operational assessment
-
-#### Tuning Discipline: ✅ Excellent
-
-- Changes based on observed live behavior, not theory
-- Surgical pair-specific adjustments
-- No broad changes without validation
-- Backups created before all changes
-
-#### Deployment Matrix: ✅ Stable
-
-```
-Aegis (Production):
-- USDT-BTC: 15m, conservative (regime-control)
-- USDT-PAXG: 15m, balanced, close-only=true (tuned)
-- USDT-SOL: 15m, aggressive (regime-control)
-
-Kestrel (Beta/Dev):
-- USDT-XRP: 5m, beta (validated)
-
-Mako (Inactive):
-- No active pairs
-```
-
----
-
-### Files changed
-
-- Updated `/home/xaos/gunbot/customStrategies/Auditqwen.md` (complete re-audit #2 report)
-- Updated `LOG.md` (this session)
-- Updated `MEMORY.md` (re-audit #2 findings)
-
-### Verification
-
-- Aegis v1.3.6 reclaim logic verified
-- PAXG tuning changes verified
-- XRP beta override verified
-- All version bumps confirmed
-- `node --check` passed for all modified files
-
-### Test status
-
-- ✅ Static code analysis complete (re-audit #2)
-- ✅ Kestrel live validation complete (successful trade)
-- ✅ Aegis live validation in progress (improving)
-- ✅ Operational discipline verified
-
-### Next
-
-1. Monitor PAXG behavior with v1.3.6 reclaim logic
-2. Watch for PAXG entry conversion (below-reclaim-trigger → valid setup)
-3. Continue Aegis validation cycle (entry → TP1 → exit)
-4. Consider Mako future decision (reactivate or archive)
-5. Schedule next audit after Aegis full validation cycle completes
-
----
-
-## 2026-03-28 - Trade review and follow-up tuning
-
-### What was analyzed
-
-- Reviewed recent live Gunbot rounds in `/home/xaos/gunbot/gunbot_logs/gunbot_logs.txt`
-- Reviewed Aegis and Kestrel monitor reports
-- Reviewed recent strategy event lines for executed trades and setup transitions
-- Rechecked Aegis reclaim math and Kestrel beta override surface
-
-### Findings
-
-- `USDT-XRP` Kestrel has already produced a valid profitable lifecycle:
-  - `tp1` executed at approx `1.3545`
-  - `trail-exit` executed at approx `1.3516`
-  - pair P/L later showed positive realized results
-- Kestrel is not structurally broken. Current near-miss pattern is:
-  - repeated `stage=reclaim-watch`
-  - repeated `skip=bearish-signal-close`
-  - occasional `rsi-above-ceiling`
-- `USDT-PAXG` Aegis improved after the earlier value/momentum relax:
-  - now regularly reaches `phase=armed`
-  - now regularly reaches `stage=reclaim-watch`
-  - current primary blocker is `below-reclaim-trigger`
-- The Aegis reclaim gate was stricter than intended:
-  - reclaim required both `signalClose > fast EMA` and `live bid > fast EMA`
-  - for close-confirmed setups this could reject a candle that closed back above the line due to tiny post-close price wobble
+- The user-facing complaint was valid:
+  - Aegis and Kestrel were still single-target partial systems (`TP1` + runner) instead of a true multi-chunk sell ladder.
+  - On-chart sell targets did not move to the next logical target after TP1 because `customSellTarget` stayed pinned to the TP1 price.
+- Aegis still blocked DCA after TP1, which is not compatible with a hold-the-bag spot doctrine.
+- Both strategies still defaulted to bounded add counts after the earlier audit pass, which no longer matched the intended operating model.
+- Neither strategy exposed an optional bag-exposure cap by base currency or `TRADING_LIMIT` percentage, even though that is the cleanest safety valve when unlimited add mode is enabled.
 
 ### Files changed
 
 - Updated `/home/xaos/gunbot/customStrategies/Aegis.js`
+- Updated `/home/xaos/gunbot/customStrategies/Kestrel.js`
+- Updated `/home/xaos/gunbot/customStrategies/AGENTS.md`
+- Updated `/home/xaos/gunbot/customStrategies/GUIDE.md`
+- Updated `/home/xaos/gunbot/customStrategies/KESTREL.md`
+- Updated `/home/xaos/gunbot/customStrategies/LOG.md`
+- Updated `/home/xaos/gunbot/customStrategies/MEMORY.md`
 - Updated `/home/xaos/gunbot/config.js`
-- Updated `/home/xaos/gunbot/customStrategies/LOG.md`
-- Updated `/home/xaos/gunbot/customStrategies/MEMORY.md`
 
 ### Behavior changed
 
-- Aegis version bumped to `1.3.6`
-- Aegis reclaim baseline check now keys off the candle close versus the fast EMA only
-- Added XRP beta override:
-  - `KESTREL_MOMENTUM_RSI_CEILING: 76`
-
-### Rationale
-
-- Aegis:
-  - keeps the reclaim logic aligned with the actual close-confirmation thesis
-  - reduces false negatives on PAXG without lowering the broader regime/value/liquidity discipline
-- Kestrel:
-  - remains the beta/dev lane
-  - slightly wider RSI ceiling allows more 5m continuation tests before momentum is considered too late
-
-### Verification
-
-- Backups created at `/home/xaos/gunbot/backups/aegis-20260328-151000-trade-review`
-- Pending post-edit syntax and config validation in this session
-
-### Next
-
-1. Confirm Gunbot reloads `Aegis 1.3.6`
-2. Watch whether PAXG shifts from `below-reclaim-trigger` into reclaim-qualified close-only states
-3. Watch whether XRP beta converts more `momentum-watch` near-misses without degrading trade quality
-
----
-
-## 2026-03-28 - Fresh restart review and OpenClaw workspace setup
-
-### What was analyzed
-
-- Checked the active pair matrix after the fresh restart in `/home/xaos/gunbot/config.js`
-- Reviewed current Gunbot live output in `/home/xaos/gunbot/gunbot_logs/gunbot_logs.txt`
-- Re-ran:
-  - `/home/xaos/gunbot/customStrategies/ops/aegis-monitor.js`
-  - `/home/xaos/gunbot/customStrategies/ops/kestrel-monitor.js`
-- Reviewed cron with `crontab -l`
-- Reviewed the new OpenClaw workspace files:
-  - `IDENTITY.md`
-  - `SOUL.md`
-  - `HEARTBEAT.md`
-  - `TOOLS.md`
-  - `USER.md`
-
-### Findings
-
-- Active custom-pair matrix after restart is now:
-  - Aegis: `BTC`, `ETH`, `PAXG`, `SOL`
-  - Kestrel: `PENDLE`, `BNB`, `XRP`
-- Cron was already healthy:
-  - Aegis monitor every 5 minutes
-  - Kestrel monitor every 5 minutes on offset
-  - log maintenance hourly
-- Monitors are still working with the widened matrix:
-  - Aegis monitor picked up 4 Aegis pairs automatically
-  - Kestrel monitor picked up 3 Kestrel pairs automatically
-- Fresh live read:
-  - `USDT-PAXG` remains the primary Aegis focus pair
-  - `USDT-BTC` remains the control pair
-  - `USDT-SOL` is currently regime-blocked even with otherwise strong local structure
-  - `USDT-ETH` was re-enabled with a PAXG-style close-only profile that did not fit current logs
-  - `USDT-PENDLE` is near-ready on Kestrel beta
-  - `USDT-BNB` and `USDT-XRP` are already in Kestrel bag-manage state
-
-### Files changed
-
-- Updated `/home/xaos/gunbot/config.js`
-- Updated `/home/xaos/gunbot/customStrategies/IDENTITY.md`
-- Updated `/home/xaos/gunbot/customStrategies/SOUL.md`
-- Updated `/home/xaos/gunbot/customStrategies/HEARTBEAT.md`
-- Updated `/home/xaos/gunbot/customStrategies/TOOLS.md`
-- Updated `/home/xaos/gunbot/customStrategies/USER.md`
-- Added `/home/xaos/gunbot/customStrategies/BOOT.md`
-- Added `/home/xaos/gunbot/customStrategies/OPENCLAW_PROMPT.md`
-- Updated `/home/xaos/gunbot/customStrategies/LOG.md`
-- Updated `/home/xaos/gunbot/customStrategies/MEMORY.md`
-
-### Behavior changed
-
-- ETH Aegis overrides were de-cloned from the PAXG profile:
-  - `AEGIS_CLOSE_ONLY_ENTRY: false`
-  - `MIN_RELATIVE_VOLUME: 0.20`
-  - `RECLAIM_WICK_RATIO: 0.20`
-  - `RECLAIM_CLOSE_LOCATION: 0.50`
-  - `MOMENTUM_MIN_RSI_DELTA: 0.06`
-  - `VALUE_MIN_PULLBACK_PCT: 0.12`
-- OpenClaw workspace files now point the agent at the trading-bot workflow instead of generic templates
-
-### Rationale
-
-- ETH should not inherit the same close-only balanced profile used for PAXG. The restart had effectively copied the PAXG behavior into ETH, which made live skip reasons less informative.
-- OpenClaw needs explicit workspace identity, startup rules, and heartbeat instructions or it will operate from weak template defaults.
+- `Aegis.js` is now `1.5.0`
+- `Kestrel.js` is now `1.5.0`
+- Default add doctrine changed in both strategies:
+  - unlimited add mode now defaults to `true`
+  - below-break-even filtering stays enabled by default
+  - profit-only exits stay enabled by default
+- Added optional bag-cap controls:
+  - Aegis:
+    - `AEGIS_MAX_BAG_BASE`
+    - `AEGIS_MAX_BAG_PCT_OF_TRADING_LIMIT`
+  - Kestrel:
+    - `KESTREL_MAX_BAG_BASE`
+    - `KESTREL_MAX_BAG_PCT_OF_TRADING_LIMIT`
+- Added a real multi-step take-profit ladder in both strategies:
+  - `TP1`
+  - `TP2`
+  - trailing runner
+- On any new DCA / reload, the partial-sell ladder now resets against the refreshed bag average.
+- Aegis DCA no longer stops just because TP1 already happened. If the market makes a lower low and the below-BEP guards still pass, the strategy can add again and re-arm the ladder.
+- Chart targets now move with the active state:
+  - before TP1: `customSellTarget = TP1`
+  - after TP1: `customSellTarget = TP2`
+  - after TP2: `customTrailingTarget = runner trail`
+- Pair overrides were aligned to the doctrine:
+  - active Aegis pairs now explicitly set `AEGIS_UNLIMITED_DCA=true`, `AEGIS_DCA_BELOW_BREAK_EVEN_ONLY=true`, `AEGIS_PROFIT_ONLY_EXITS=true`
+  - active Kestrel pairs now explicitly set `KESTREL_UNLIMITED_DCA=true`, `KESTREL_RELOAD_BELOW_BREAK_EVEN_ONLY=true`, `KESTREL_PROFIT_ONLY_EXITS=true`
 
 ### Verification
 
-- Backups created at `/home/xaos/gunbot/backups/aegis-20260328-154500-openclaw`
-- Aegis monitor refreshed against 4 enabled Aegis pairs
-- Kestrel monitor refreshed against 3 enabled Kestrel pairs
-- Pending next Gunbot config reload cycle for ETH override confirmation
-
-### Next
-
-1. Confirm ETH stops presenting misleading `waiting-candle-close` states once Gunbot reloads config
-2. Keep monitoring PAXG as the primary Aegis execution candidate
-3. Watch PENDLE as the current Kestrel near-entry beta pair
-
----
-
-## 2026-03-28 - Log retention policy relaxed
-
-### What was analyzed
-
-- Checked disk headroom with `df -h`
-- Checked current log sizes in `/home/xaos/gunbot/gunbot_logs`
-- Reviewed current maintenance script in `/home/xaos/gunbot/customStrategies/ops/log-maintenance.js`
-- Reviewed current cron schedule with `crontab -l`
-
-### Findings
-
-- Disk headroom is very large:
-  - root filesystem has about `481G` free
-- Current log footprint is small:
-  - `/home/xaos/gunbot/gunbot_logs` about `29M`
-  - main `gunbot_logs.txt` about `15M`
-  - pair logs about `2M` each
-- The existing cleanup job was not actively harming retention, but its thresholds were sized too tightly for the available disk.
-- The hourly cron itself is fine. The policy needed relaxing, not the cadence.
-
-### Files changed
-
-- Updated `/home/xaos/gunbot/customStrategies/ops/log-maintenance.js`
-- Updated `/home/xaos/gunbot/customStrategies/LOG.md`
-- Updated `/home/xaos/gunbot/customStrategies/MEMORY.md`
-
-### Behavior changed
-
-- Relaxed retention thresholds substantially:
-  - main Gunbot log:
-    - `64 MiB -> 2 GiB`
-    - keep tail `16 MiB -> 512 MiB`
-  - pair logs:
-    - `48 MiB -> 512 MiB`
-    - keep tail `12 MiB -> 128 MiB`
-  - ops logs:
-    - `4 MiB -> 64 MiB`
-    - keep tail `1 MiB -> 16 MiB`
-- Added reporting for:
-  - free disk space
-  - total Gunbot log directory size
-  - total ops directory size
-
-### Rationale
-
-- The bot needs enough retained log history for monitoring, debugging, and AI-driven tuning.
-- With the current disk headroom, aggressive trimming would throw away useful evidence for no operational gain.
-- Hourly checking remains useful as a guardrail, but trimming should only happen when logs are genuinely large.
-
-### Verification
-
-- Backups created at `/home/xaos/gunbot/backups/aegis-20260328-162500-log-policy`
-- Pending runtime execution of the updated maintenance script in this session
-
-### Next
-
-1. Run the updated maintenance script once and confirm the new report shows free-space and directory-size metrics
-2. Leave the hourly cron in place unless actual log growth later proves it unnecessary
-
----
-
-## 2026-03-29 - PAXG trade investigation and Aegis close-state hardening
-
-### What was analyzed
-
-- Reviewed current and rotated Gunbot logs for `USDT-PAXG`
-- Cross-checked `ops/aegis-monitor-history.log` against the actual PAXG order ledger in `/home/xaos/gunbot/json/binance-USDT-PAXG-state.json`
-- Reviewed Aegis bag recovery, entry, exit, and close-state handling in `/home/xaos/gunbot/customStrategies/Aegis.js`
-- Checked other Aegis pairs for similar recent trade evidence
-
-### Findings
-
-- The latest losing PAXG trade was real:
-  - buy `2026-03-28T16:43:47.729Z` at `4503.23`
-  - sell `2026-03-29T04:44:07.379Z` at `4496.73`
-  - price PnL about `-0.1443%`
-  - base PnL about `-0.34395 USDT`
-- The sell was an Aegis stale exit, not a mystery external liquidation:
-  - rotated logs show `[INFO][stale] Executed stale market sell...`
-  - buy-to-sell age was about `720.33` minutes, matching Aegis balanced `staleMinutes=720`
-- Qwen's "Aegis forgot its own fill entirely" diagnosis was too strong.
-- The real Aegis defects were:
-  - post-close state went mostly blank because Aegis had no persistent last-closed-trade snapshot
-  - full exits could later be mislabeled as `bag-flat` / "outside the current action path"
-  - `bag-detected` could also be misleading after Aegis's own entry, because the next cycle sees the filled bag while the entry cycle still ended with `hasBag=false`
-  - setup-arm evaluation happened before bag-close reconciliation, which could produce misleading `setup-armed` lines around a just-closed bag
-- Other active Aegis pairs (`BTC`, `ETH`, `SOL`) showed no similar recent trade evidence in the reviewed logs.
-
-### Files changed
-
-- Updated `/home/xaos/gunbot/customStrategies/Aegis.js`
-- Updated `/home/xaos/gunbot/customStrategies/LOG.md`
-- Updated `/home/xaos/gunbot/customStrategies/MEMORY.md`
-
-### Behavior changed
-
-- Aegis version bumped to `1.3.7`
-- Added explicit close-state persistence fields in `customStratStore.aegis`:
-  - `lastClosedAt`
-  - `lastClosedReason`
-  - `lastClosedEntryPrice`
-  - `lastClosedExitPrice`
-  - `lastClosedPnlPct`
-  - `lastClosedBasePnl`
-  - `lastClosedRecovered`
-- Added pending close handoff state so Aegis can distinguish:
-  - its own just-fired full exits
-  - externally closed bags
-- Moved bag-close reconciliation earlier in the cycle so close handling is applied before setup notifications and skip-stage presentation.
-- Suppressed false `bag-detected` recovery labeling when the bag appears after Aegis's own `entry-pending` fill.
-- Added historical close backfill from Gunbot order history when no open bag exists and no last-close snapshot is present yet.
-
-### Verification
-
-- Backup created at `/home/xaos/gunbot/backups/aegis-20260329-085652-paxg-close-audit`
+- Backup created at `/home/xaos/gunbot/backups/aegis-20260401-174222-spot-bag-ladder`
 - `node --check /home/xaos/gunbot/customStrategies/Aegis.js` passed
-- Live logs show `Aegis Regime Reclaim 1.3.7`
-- PAXG state now retains the last closed trade snapshot:
-  - `lastClosedAt = 1774759447379`
-  - `lastClosedReason = historical-close`
-  - `lastClosedEntryPrice = 4503.23`
-  - `lastClosedExitPrice = 4496.73`
-  - `lastClosedPnlPct = -0.14434`
-  - `lastClosedBasePnl = -0.34395`
+- `node --check /home/xaos/gunbot/customStrategies/Kestrel.js` passed
+- `/home/xaos/gunbot/config.js` was rewritten as valid JSON and still parses
 
 ### Next
 
-1. Watch the next full Aegis close on PAXG and confirm the new log sequence is `stale/trail/invalidation -> bag-closed`, not `setup-armed -> bag-flat`
-2. Leave PAXG thresholds unchanged for now; this sample was enough to fix bookkeeping, not enough to justify retuning the entry model
-3. Keep monitoring Kestrel separately as the faster beta lane, because its current issue profile is churn/time-stop behavior rather than Aegis-style close-state accounting
+1. Watch the next partial-sell event on both strategies and confirm the chart moves from `TP1` to `TP2` instead of leaving a stale first target behind.
+2. Watch the first lower-low add after a partial sell and confirm the ladder resets cleanly from the new bag average.
+3. If unlimited add mode becomes too loose on any pair, use the new bag-cap keys instead of reverting to hard stop-loss logic.
+
+## 2026-04-01 - Viper spec rewrite and naming normalization
+
+### What was analyzed
+
+- Reviewed the existing `/home/xaos/gunbot/customStrategies/VIPER.md` draft
+- Compared the old draft against the current live strategy lineup:
+  - Aegis as the strict premium regime-entry lane
+  - Kestrel as the fast beta lane
+- Evaluated whether the old `RAAD` / `STRAD` draft was actually distinct enough to justify a future third strategy
+
+### Findings
+
+- The old draft had a good underlying idea, but it was inconsistent in identity:
+  - mixed names: `STRAD`, `RAAD`, `BTC Spot Strategy Spec`
+  - overly BTC-specific framing even though the logic can apply to other liquid spot pairs
+- The real strategic difference versus Aegis and Kestrel is not speed or timeframe.
+  It is **inventory-first bag management**:
+  - BEP-aware adds
+  - reserve-aware deployment
+  - staged profitable trims
+  - no-stop-loss spot doctrine from the start
+- That makes Viper a valid future third lane, but only if it stays distinct from Aegis instead of becoming "Aegis with slower candles."
+
+### Files changed
+
+- Updated `/home/xaos/gunbot/customStrategies/VIPER.md`
+- Updated `/home/xaos/gunbot/customStrategies/LOG.md`
+- Updated `/home/xaos/gunbot/customStrategies/MEMORY.md`
+
+### Behavior changed
+
+- Rewrote `VIPER.md` into a normalized Viper specification.
+- Removed older mixed naming and made **Viper** the single product name.
+- Changed the design from a BTC-only draft to a **pair-capable liquid-spot inventory strategy**.
+- Incorporated current project doctrine and newer ideas from Aegis/Kestrel development:
+  - spot only
+  - no forced red exits by default
+  - BEP-driven DCA
+  - reserve-aware bag growth
+  - staged trims
+  - pair-capable profiles
+  - strong telemetry / chart expectations
+- Explicitly positioned Viper as:
+  - distinct from Aegis
+  - distinct from Kestrel
+  - focused on inventory quality, not generic entry timing
+
+### Verification
+
+- Backup created at `/home/xaos/gunbot/backups/aegis-20260401-180744-viper-spec-rewrite`
+- Verified rewritten `/home/xaos/gunbot/customStrategies/VIPER.md` exists and renders as the new spec
+
+### Next
+
+1. Hold here as requested and do not start `Viper.js` yet.
+2. If Viper moves into implementation later, treat it as a separate strategy family with separate docs and runtime logic.
+3. Do not let Viper collapse into "Aegis with slower settings" or "Kestrel with more DCA."
+
+## 2026-04-01 - Viper runtime implementation
+
+### What was analyzed
+
+- Implemented the first real `/home/xaos/gunbot/customStrategies/Viper.js` from the rewritten `/home/xaos/gunbot/customStrategies/VIPER.md` spec
+- Validated the new file against current Aegis/Kestrel runtime patterns:
+  - Gunbot override reads
+  - spot inventory sizing semantics
+  - pair-ledger persistence
+  - chart/sidebar/notification payloads
+- Ran syntax validation and a stubbed Gunbot runtime harness in:
+  - flat / no-bag mode
+  - in-bag / profitable trim mode
+
+### Findings
+
+- Viper is a genuinely distinct strategy family, not an Aegis clone:
+  - daily macro regime
+  - 4H execution layer
+  - 1H timing confirmation
+  - reserve-aware starter sizing
+  - BEP-aware recovery buys
+  - staged profitable trims instead of TP1/TP2/runner
+- The first pass of `Viper.js` was structurally sound, but two control-flow bugs surfaced during validation:
+  - regime-change notifications could never fire because `state.lastRegime` was overwritten before the comparison
+  - add/trim cooldown states were not surfaced correctly in stage/skip reporting
+- A third runtime issue was introduced during the first cleanup patch:
+  - missing closing braces near the end of `runViper`
+  - caught by `node --check` and fixed immediately
+
+### Files changed
+
+- Created `/home/xaos/gunbot/customStrategies/Viper.js`
+- Updated `/home/xaos/gunbot/customStrategies/LOG.md`
+- Updated `/home/xaos/gunbot/customStrategies/MEMORY.md`
+
+### Behavior added
+
+- Added `Viper Inventory Engine 1.0.1` as a new single-file Gunbot strategy
+- Core logic shipped:
+  - 1D macro regime classification: `bull`, `neutral`, `bear`
+  - 4H execution scoring for starter entries, recovery adds, and profitable trim tiers
+  - 1H timing confirmation for reclaim / reversal quality
+  - reserve-aware capital gating
+  - unlimited-or-capped BEP-aware add logic
+  - profit-only staged trims: `trim1`, `trim2`, `trim3`
+  - core-hold logic by regime instead of full exit bias
+  - chart targets for starter/add, BEP, next trim, and risk floor zone
+  - sidebar telemetry for regime, mode, setup, add state, trim state, reserve, and exposure
+- Validation hardening added during implementation:
+  - fixed regime transition notification logic
+  - fixed add/trim cooldown stage reporting
+  - removed `customStopTarget` usage so the chart does not imply stop-loss behavior in a profit-only spot strategy
+
+### Verification
+
+- Backup created at `/home/xaos/gunbot/backups/aegis-20260401-183502-viper-runtime`
+- `node --check /home/xaos/gunbot/customStrategies/Viper.js` passed
+- Stubbed runtime harness passed in both:
+  - flat starter-watch mode
+  - in-bag trim execution mode
+- Verified that Viper produces:
+  - sidebar extras
+  - chart targets/shapes
+  - state logs without runtime exceptions
+
+### Next
+
+1. Attach `Viper.js` to one liquid simulator pair first, preferably BTC, ETH, or PAXG.
+2. Watch the first real starter buy and verify:
+   - reserve gating
+   - add target placement
+   - trim target movement after partial sells
+3. If the first live Viper pair is too inactive, tune starter score and value-zone chase controls before touching recovery math.
+
+## 2026-04-01 - Viper timeframe profile correction
+
+### What was analyzed
+
+- Reviewed the freshly restarted live matrix after new Viper pairs were added
+- Verified `/home/xaos/gunbot/config.js` currently runs the Viper pairs on `PERIOD=15`
+- Rechecked Viper’s internal timeframe defaults against the actual operator goal:
+  - more action
+  - still multi-timeframe
+  - still inventory-aware
+
+### Findings
+
+- `240m` is `240 minutes = 4 hours`, not 4 days
+- The pair chart timeframe and Viper’s internal fetch timeframes are separate concerns
+- The original Viper default of `1D / 4H / 1H` was valid structurally, but too slow for the way this Gunbot setup is actually being used
+- The better default for this repo is:
+  - balanced: `4H / 1H / 15m`
+  - aggressive: `2H / 30m / 15m`
+  while keeping conservative at `1D / 4H / 1H`
+
+### Files changed
+
+- Updated `/home/xaos/gunbot/customStrategies/Viper.js`
+- Updated `/home/xaos/gunbot/customStrategies/VIPER.md`
+- Updated `/home/xaos/gunbot/customStrategies/LOG.md`
+- Updated `/home/xaos/gunbot/customStrategies/MEMORY.md`
+
+### Behavior changed
+
+- Bumped Viper to `1.0.2`
+- Risk profiles now also define default internal timeframes:
+  - `conservative`: macro `1440`, execution `240`, timing `60`
+  - `balanced`: macro `240`, execution `60`, timing `15`
+  - `aggressive`: macro `120`, execution `30`, timing `15`
+- Cache intervals were tightened to match the faster balanced/aggressive profile expectations
+- This means Viper can stay on pair `PERIOD=15` charts while making more frequent internal decisions without collapsing to pure 15m noise
+
+### Verification
+
+- Backup created at `/home/xaos/gunbot/backups/aegis-20260401-192416-viper-timeframe-tune`
+- `node --check /home/xaos/gunbot/customStrategies/Viper.js` passed after the profile timing change
+
+### Next
+
+1. Let the fresh Viper pairs run with the new balanced defaults before touching entry looseness.
+2. If a specific Viper pair is still too slow, tune per-pair with:
+   - `VIPER_MACRO_PERIOD`
+   - `VIPER_EXECUTION_PERIOD`
+   - `VIPER_TIMING_PERIOD`
+3. Prefer timeframe tuning first, score loosening second.
+
+## 2026-04-01 - Viper live pair audit and tuning pass
+
+### What was analyzed
+
+- Reviewed the freshly restarted Viper pair blocks in `/home/xaos/gunbot/config.js`
+- Checked live Viper visibility in `/home/xaos/gunbot/gunbot_logs/gunbot_logs.txt`
+- Inspected active state files:
+  - `/home/xaos/gunbot/json/binance-USDT-STO-state.json`
+  - `/home/xaos/gunbot/json/binance-USDT-TAO-state.json`
+  - `/home/xaos/gunbot/json/binance-USDT-ZEC-state.json`
+  - `/home/xaos/gunbot/json/binance-USDT-NIGHT-state.json`
+- Simulated the patched Viper runtime against the current state-file candle data to sanity-check stage and skip behavior before handing it back live
+
+### Findings
+
+- The new Viper pairs were not actually configured as Viper pairs in any meaningful way yet.
+  They had been cloned from older generic pair blocks and were still carrying:
+  - `TRADING_LIMIT = 0.002`
+  - `MIN_VOLUME_TO_BUY = 0.001`
+  - no `VIPER_RISK_PROFILE`
+  - no `VIPER_LOG_MODE`
+  - no explicit Viper timeframes or sizing controls
+- That was the main operational defect.
+  Before any strategy math discussion, Viper needed real pair overrides.
+- Viper logs were effectively absent from `gunbot_logs.txt` because the live pairs were still on default event-only telemetry behavior.
+- Live state before the patch showed:
+  - `STO`: `bull`, flat, `starter-watch`, blocked by `chase-blocked` / then `not-in-value-zone`
+  - `TAO`: `neutral`, flat, `starter-watch`, blocked by `not-in-value-zone`
+  - `ZEC`: already in bag / inventory-manage state
+  - `NIGHT`: `bear-standby`
+- A deeper design issue also surfaced:
+  faster Viper profiles had been using faster macro periods but still the same slow `50/200` regime model.
+  That made the “faster” profiles too history-hungry and too sluggish for this repo’s actual operating style.
+
+### Files changed
+
+- Updated `/home/xaos/gunbot/customStrategies/Viper.js`
+- Updated `/home/xaos/gunbot/config.js`
+- Updated `/home/xaos/gunbot/customStrategies/LOG.md`
+- Updated `/home/xaos/gunbot/customStrategies/MEMORY.md`
+
+### Behavior changed
+
+- Bumped Viper to `1.0.3`
+- Improved Viper runtime defaults:
+  - default telemetry log mode is now `changes`
+  - balanced profile now uses faster, more realistic internal timing for this workspace
+  - aggressive profile now uses a genuinely faster regime model instead of reusing conservative-style `50/200`
+- Added defensive sizing normalization:
+  - if a Viper pair on a stable-base market inherits a nonsense generic trade limit like `0.002` and no explicit `VIPER_TRADE_LIMIT` is set, Viper now falls back to its sane default trade limit instead of silently starving itself
+- Added aggregated local candle fallback for higher-timeframe fetches:
+  - macro and timing candle requests can now rebuild from local pair candles when fetches fail and the period is a multiple of the chart timeframe
+- Broadened starter value-zone logic slightly:
+  - starter entries are now less strict than recovery adds, which fits Viper’s inventory-first role better
+
+### Pair override changes
+
+- All live Viper pairs now have explicit:
+  - `VIPER_TRADE_LIMIT`
+  - `MIN_VOLUME_TO_BUY = 15`
+  - `MIN_VOLUME_TO_SELL = 15`
+  - `VIPER_RISK_PROFILE`
+  - `VIPER_LOG_MODE = cycle`
+  - `VIPER_UNLIMITED_DCA = true`
+  - `VIPER_DCA_BELOW_BREAK_EVEN_ONLY = true`
+  - `VIPER_PROFIT_ONLY_EXITS = true`
+  - charts / shapes / notifications enabled
+- New live Viper posture:
+  - `USDT-STO`: aggressive, `75`
+  - `USDT-TAO`: balanced, `120`
+  - `USDT-ZEC`: balanced, `100`
+  - `USDT-NIGHT`: aggressive, `60`
+- Pair `CANDLES_LENGTH` was increased to `800` on the Viper pairs to improve local chart depth and local higher-timeframe fallback quality
+
+### Verification
+
+- Backup created at `/home/xaos/gunbot/backups/aegis-20260401-192416-viper-timeframe-tune`
+- `node --check /home/xaos/gunbot/customStrategies/Viper.js` passed
+- `/home/xaos/gunbot/config.js` parses cleanly as JSON
+- Simulated post-patch Viper behavior against current state-file candles showed:
+  - `STO`: `bull`, flat, `starter-watch`, `not-in-value-zone`
+  - `TAO`: `neutral`, flat, `starter-watch`, `not-in-value-zone`
+  - `ZEC`: in bag, `inventory-manage`, `discount-too-shallow`
+  - `NIGHT`: `bear`, flat, `bear-standby`
+
+### Next
+
+1. Reload or restart the Viper pairs so Gunbot actually runs `Viper 1.0.3` and the new pair overrides.
+2. Watch the first cycle logs for:
+   - `STO` and `TAO` starter-watch evolution
+   - `ZEC` bag-management and first trim behavior
+   - `NIGHT` staying disciplined in bear-standby unless regime improves
+3. If `STO` and `TAO` remain stuck on `not-in-value-zone` for many cycles after the reload, tune starter entry looseness again before touching recovery/add logic.
+
+## 2026-04-01 - Viper Live Buy Audit And Sizing Normalization
+
+### What was analyzed
+
+- Reviewed latest live `Viper Inventory Engine 1.0.3` cycle logs in `/home/xaos/gunbot/gunbot_logs/gunbot_logs.txt`
+- Reviewed live pair state files for:
+  - `USDT-TAO`
+  - `USDT-STO`
+  - `USDT-ZEC`
+  - `USDT-NIGHT`
+- Compared Viper trade-limit override handling against Aegis and Kestrel
+- Audited Viper add-distance math and live pair overrides in `/home/xaos/gunbot/config.js`
+
+### Findings
+
+- Viper is live and managing inventory correctly, not forcing red exits.
+- Current live posture:
+  - `USDT-STO`: active bag, profit oscillating from roughly `-1.6%` back to `+3.7%`, then still in-bag
+  - `USDT-ZEC`: active bag, shallow red, consistently blocked by `discount-too-shallow`
+  - `USDT-TAO`: flat, `starter-watch`, mostly `waiting-reversal`
+  - `USDT-NIGHT`: flat, `bear-standby`
+- The main Viper tuning gap was not starter logic. It was add math on volatile pairs:
+  - ATR-driven discount and spacing could dominate too hard
+  - on `STO` this pushed `nextAdd` much too far below BEP for a spot inventory strategy
+- Viper already supported `VIPER_TRADE_LIMIT`, but the live pair overrides were inconsistent (`120 / 75 / 100 / 60`), which made the UI and pair sizing less coherent than Aegis.
+
+### Files changed
+
+- Updated `/home/xaos/gunbot/customStrategies/Viper.js`
+- Updated `/home/xaos/gunbot/config.js`
+- Updated `/home/xaos/gunbot/customStrategies/VIPER.md`
+- Updated `/home/xaos/gunbot/customStrategies/LOG.md`
+- Updated `/home/xaos/gunbot/customStrategies/MEMORY.md`
+
+### Behavior changed
+
+- Bumped Viper to `1.0.4`
+- Added ATR caps to recovery/add math:
+  - `VIPER_SPACING_ATR_CAP_PCT`
+  - `VIPER_DISCOUNT_ATR_CAP_PCT`
+- Viper now caps ATR-driven spacing and discount so cheap volatile pairs do not require extreme pullbacks before averaging down
+- Added more operator-visible telemetry:
+  - cycle logs now include `trade=`, `discT=`, and `space=`
+  - sidebar now shows:
+    - `Trade`
+    - `Disc Tgt`
+    - `Spacing`
+- Normalized all live Viper pairs to `100 USDT` per trade through both:
+  - `TRADING_LIMIT`
+  - `VIPER_TRADE_LIMIT`
+- Increased all live Viper pair `CANDLES_LENGTH` values to `800` to better support higher-timeframe aggregation fallback
+- Added pair-specific ATR caps on the more active Viper lanes:
+  - `STO`
+  - `ZEC`
+  - `NIGHT`
+
+### Verification
+
+- Backup created at `/home/xaos/gunbot/backups/aegis-20260401-200054-viper-live-audit`
+- `node --check /home/xaos/gunbot/customStrategies/Viper.js` pending after patch
+- `/home/xaos/gunbot/config.js` parse pending after patch
+
+### Next
+
+1. Reload/restart the Viper pairs so Gunbot picks up `Viper 1.0.4` and the normalized `100` trade size.
+2. Watch whether `STO` and `ZEC` move their `nextAdd` targets materially closer to BEP under the new ATR caps.
+3. If `STO` still refuses normal recovery adds after the cap patch, lower aggressive-profile discount base next, not starter logic.
+
+## 2026-04-01 - Live Cross-Strategy Audit And State Anchor Fix
+
+### What was analyzed
+
+- Reviewed latest live strategy logs across:
+  - `Aegis`
+  - `Kestrel`
+  - `Viper`
+- Reviewed latest pair-state snapshots and 6h digest output
+- Checked repeated transition logs against runtime state handling
+
+### Findings
+
+- Viper is currently the strongest live-behaving lane:
+  - `USDT-STO` successfully held inventory and executed `trim3` profitably under `Viper 1.0.4`
+  - `USDT-ZEC` is stable but still too shallow for its next recovery add
+  - `USDT-TAO` remains disciplined and flat in `starter-watch`
+- Aegis trade logic is behaving defensively, but repeated:
+  - `bag-detected`
+  - `setup-armed`
+  log lines showed that transition memory was not being anchored reliably enough across cycles
+- The same underlying issue could affect Kestrel and Viper transition state too:
+  - trim flags
+  - DCA/reload counters
+  - prior-cycle transition memory
+
+### Root cause
+
+- The strategies resolved a snapshot runtime object, but state initialization did not always anchor itself back to the live `pairLedger.customStratStore` object first.
+- That made transition memory less reliable than intended, even though chart/state calculations inside a single cycle still worked.
+
+### Files changed
+
+- Updated `/home/xaos/gunbot/customStrategies/Aegis.js`
+- Updated `/home/xaos/gunbot/customStrategies/Kestrel.js`
+- Updated `/home/xaos/gunbot/customStrategies/Viper.js`
+- Updated `/home/xaos/gunbot/customStrategies/LOG.md`
+- Updated `/home/xaos/gunbot/customStrategies/MEMORY.md`
+
+### Behavior changed
+
+- Anchored all three strategies to `gb.data.pairLedger.customStratStore` as the canonical live persistent store
+- Synced `gb.data.customStratStore` back to that live object after anchoring
+- Bumped versions:
+  - `Aegis 1.5.1`
+  - `Kestrel 1.5.1`
+  - `Viper 1.0.5`
+
+### Live strategy read after audit
+
+- `Aegis`
+  - `PAXG` is still the closest flat setup, mostly blocked by reclaim timing/quality
+  - `BTC`, `ETH`, and `SOL` are all active bags being managed without forced red exits
+- `Kestrel`
+  - all three beta pairs are active bags
+  - no fresh evidence yet that reload thresholds are broken
+  - no logic loosening was justified in this pass
+- `Viper`
+  - `STO` is proving the staged trim model can work live
+  - `ZEC` remains conservative on adds, but not broken
+
+### Verification
+
+- Backup created at `/home/xaos/gunbot/backups/aegis-20260401-201812-state-anchor-fix`
+- `node --check /home/xaos/gunbot/customStrategies/Aegis.js` passed
+- `node --check /home/xaos/gunbot/customStrategies/Kestrel.js` passed
+- `node --check /home/xaos/gunbot/customStrategies/Viper.js` passed
+- `/home/xaos/gunbot/config.js` parses cleanly
+
+### Next
+
+1. Reload the active pairs so Gunbot picks up:
+   - `Aegis 1.5.1`
+   - `Kestrel 1.5.1`
+   - `Viper 1.0.5`
+2. Confirm that repeated `bag-detected` and `setup-armed` spam disappears.
+3. Only if post-fix logs still show Viper `ZEC` or Kestrel bags missing obvious add opportunities, tune add thresholds next.
